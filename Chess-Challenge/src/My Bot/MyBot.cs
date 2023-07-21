@@ -77,17 +77,34 @@ public class MyBot : IChessBot
     
     private int Evaluate(Board board)
     {
-        var pieceLists = board.GetAllPieceLists();
         var eval = 0;
-        
-        foreach (var pieceList in pieceLists)
+
+        foreach (PieceType pieceType in Enum.GetValues(typeof(PieceType)))
         {
-            foreach (var piece in pieceList)
-            {
-                eval += (piece.IsWhite ? 1 : -1) * values[(int)piece.PieceType];
-            }
+            var pieceValue = values[(int)pieceType];
+            var whiteBitboard = board.GetPieceBitboard(pieceType, true);
+            var blackBitboard = board.GetPieceBitboard(pieceType, false);
+            eval += pieceValue * (CountBits(whiteBitboard) - CountBits(blackBitboard));
         }
 
         return eval;
+    }
+    
+    private int CountBits(ulong bitboard)
+    {
+        var count = 0;
+        while (bitboard != 0)
+        {
+            // Subtracting 1 from a binary number will always flip the rightmost 1 to 0 and all 0s to 1s to the right of it
+            // So if we AND the original number with the number minus 1, we will get a number with the rightmost 1 flipped to 0
+            // We can then repeat this process until the number is 0, counting the number of times we can do this
+            // 10010100 & 10010011 = 10010000
+            // 10010000 & 10001111 = 10000000
+            // 10000000 & 01111111 = 00000000
+            bitboard &= bitboard - 1;
+            count++;
+        }
+
+        return count;
     }
 }
