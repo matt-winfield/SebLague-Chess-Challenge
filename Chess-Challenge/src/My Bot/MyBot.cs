@@ -14,6 +14,8 @@ public class MyBot : IChessBot
         1000, // Queen
         10000 // King
     };
+
+    private Array pieceTypes = Enum.GetValues(typeof(PieceType));
     
     public Move Think(Board board, Timer timer)
     {
@@ -110,7 +112,7 @@ public class MyBot : IChessBot
             return eval;
         }
 
-        foreach (PieceType pieceType in Enum.GetValues(typeof(PieceType)))
+        foreach (PieceType pieceType in pieceTypes)
         {
             if (pieceType == PieceType.None) continue;
             foreach (var isWhite in new[] {true, false})
