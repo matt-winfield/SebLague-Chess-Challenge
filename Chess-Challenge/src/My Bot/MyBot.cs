@@ -20,7 +20,7 @@ public class MyBot : IChessBot
         var (score, move) = board.IsWhiteToMove ?
             AlphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 5)
             : AlphaBetaMin(board, Int32.MinValue, Int32.MaxValue, 5);
-        Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}");
+        Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}, fen: {board.GetFenString()}");
         return move;
     }
 
@@ -29,7 +29,7 @@ public class MyBot : IChessBot
         int score;
         var legalMoves = board.GetLegalMoves();
         Move bestMove = new Move();
-        if (depthLeft == 0) return (Evaluate(board), bestMove);
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
@@ -54,7 +54,7 @@ public class MyBot : IChessBot
         int score;
         var legalMoves = board.GetLegalMoves();
         Move bestMove = new Move();
-        if (depthLeft == 0) return (Evaluate(board), bestMove);
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
@@ -78,12 +78,18 @@ public class MyBot : IChessBot
     {
         var eval = 0;
 
+        if (board.IsDraw())
+        {
+            return eval;
+        }
+
         foreach (var piece in GetPieces(board))
         {
-            // x1 near edges, x1.5 near center
-            // Index 3/4 is center, 0/7 is edge
-            var rankDistanceFromCenter = Math.Abs(piece.Square.Rank - 3);
-            eval += values[(int)piece.PieceType] * (piece.IsWhite ? 1 : -1);
+            // x1 near edges, x2 near center
+            // Index 3.5 is center
+            var positionMultiplier =
+                1 + (3.5 - Math.Min(Math.Abs(piece.Square.Rank - 3.5), Math.Abs(piece.Square.File - 3.5))) / 3.5;
+            eval += (int)(values[(int)piece.PieceType] * positionMultiplier) * (piece.IsWhite ? 1 : -1);
         }
 
         return eval;
