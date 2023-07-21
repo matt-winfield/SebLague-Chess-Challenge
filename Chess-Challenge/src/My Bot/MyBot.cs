@@ -99,13 +99,12 @@ public class MyBot : IChessBot
 
     private int Evaluate(Board board)
     {
-        var eval = 0;
-        
         if (board.IsInCheckmate())
         {
             return board.IsWhiteToMove ? Int32.MinValue : Int32.MaxValue;
         }
 
+        var eval = 0;
         if (board.IsDraw())
         {
             return eval;
