@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -77,32 +78,29 @@ public class MyBot : IChessBot
     {
         var eval = 0;
 
-        foreach (PieceType pieceType in Enum.GetValues(typeof(PieceType)))
+        foreach (var piece in GetPieces(board))
         {
-            var pieceValue = values[(int)pieceType];
-            var whiteBitboard = board.GetPieceBitboard(pieceType, true);
-            var blackBitboard = board.GetPieceBitboard(pieceType, false);
-            eval += pieceValue * (CountBits(whiteBitboard) - CountBits(blackBitboard));
+            // x1 near edges, x1.5 near center
+            // Index 3/4 is center, 0/7 is edge
+            var rankDistanceFromCenter = Math.Abs(piece.Square.Rank - 3);
+            eval += values[(int)piece.PieceType] * (piece.IsWhite ? 1 : -1);
         }
 
         return eval;
     }
     
-    private int CountBits(ulong bitboard)
+    private Piece[] GetPieces(Board board)
     {
-        var count = 0;
-        while (bitboard != 0)
+        var pieces = new List<Piece>();
+        for (int i = 0; i < 64; i++)
         {
-            // Subtracting 1 from a binary number will always flip the rightmost 1 to 0 and all 0s to 1s to the right of it
-            // So if we AND the original number with the number minus 1, we will get a number with the rightmost 1 flipped to 0
-            // We can then repeat this process until the number is 0, counting the number of times we can do this
-            // 10010100 & 10010011 = 10010000
-            // 10010000 & 10001111 = 10000000
-            // 10000000 & 01111111 = 00000000
-            bitboard &= bitboard - 1;
-            count++;
+            var piece = board.GetPiece(new Square(i));
+            if (!piece.IsNull)
+            {
+                pieces.Add(piece);
+            }
         }
 
-        return count;
+        return pieces.ToArray();
     }
 }
