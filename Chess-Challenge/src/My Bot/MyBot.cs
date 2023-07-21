@@ -28,12 +28,11 @@ public class MyBot : IChessBot
         int score;
         var legalMoves = board.GetLegalMoves();
         Move bestMove = legalMoves[0];
-        if (depthLeft == 0) return (-Evaluate(board), bestMove);
+        if (depthLeft == 0) return (Evaluate(board), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
             (score, _) = AlphaBetaMin(board, lowerBound, upperBound, depthLeft - 1);
-            Console.WriteLine($"Trying move {move}, depth {depthLeft}, state {board.GetFenString()}, score {score}");
             board.UndoMove(move);
             if (score >= upperBound)
             {
@@ -59,7 +58,6 @@ public class MyBot : IChessBot
         {
             board.MakeMove(move);
             (score, _) = AlphaBetaMax(board, lowerBound, upperBound, depthLeft - 1);
-            Console.WriteLine($"Trying move {move}, depth {depthLeft}, state {board.GetFenString()}, score {score}");
             board.UndoMove(move);
             if (score <= lowerBound)
             {
