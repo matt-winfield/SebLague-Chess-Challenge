@@ -17,8 +17,8 @@ public class MyBot : IChessBot
     public Move Think(Board board, Timer timer)
     {
         var (score, move) = board.IsWhiteToMove ?
-            AlphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 2)
-            : AlphaBetaMin(board, Int32.MinValue, Int32.MaxValue, 2);
+            AlphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 5)
+            : AlphaBetaMin(board, Int32.MinValue, Int32.MaxValue, 5);
         Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}");
         return move;
     }
@@ -27,7 +27,7 @@ public class MyBot : IChessBot
     {
         int score;
         var legalMoves = board.GetLegalMoves();
-        Move bestMove = legalMoves[0];
+        Move bestMove = new Move();
         if (depthLeft == 0) return (Evaluate(board), bestMove);
         foreach (var move in legalMoves)
         {
@@ -52,7 +52,7 @@ public class MyBot : IChessBot
     {
         int score;
         var legalMoves = board.GetLegalMoves();
-        Move bestMove = legalMoves[0];
+        Move bestMove = new Move();
         if (depthLeft == 0) return (Evaluate(board), bestMove);
         foreach (var move in legalMoves)
         {
