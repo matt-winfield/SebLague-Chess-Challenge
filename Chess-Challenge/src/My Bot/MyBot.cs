@@ -28,7 +28,7 @@ public class MyBot : IChessBot
     {
         int score;
         var legalMoves = board.GetLegalMoves();
-        Move bestMove = new Move();
+        Move bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
         if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board), bestMove);
         foreach (var move in legalMoves)
         {
@@ -48,12 +48,12 @@ public class MyBot : IChessBot
 
         return (lowerBound, bestMove);
     }
-    
+
     private (int, Move) AlphaBetaMin(Board board, int lowerBound, int upperBound, int depthLeft)
     {
         int score;
         var legalMoves = board.GetLegalMoves();
-        Move bestMove = new Move();
+        Move bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
         if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board), bestMove);
         foreach (var move in legalMoves)
         {
@@ -62,8 +62,9 @@ public class MyBot : IChessBot
             board.UndoMove(move);
             if (score <= lowerBound)
             {
-                return (lowerBound, bestMove); 
+                return (lowerBound, bestMove);
             }
+
             if (score < upperBound)
             {
                 upperBound = score;
@@ -73,23 +74,57 @@ public class MyBot : IChessBot
 
         return (upperBound, bestMove);
     }
+
+    private static double GetPawnPositionalMultiplier(bool isWhite, int rank, int file)
+    {
+        return 1 + (
+            isWhite
+                ? (7 - rank) / 7
+                : rank / 7
+            );
+    }
     
+    private static double GetCenterPositionalMultiplier(bool isWhite, int rank, int file)
+    {
+        return 1 + (3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5;
+    }
+
+    private Dictionary<PieceType, Func<bool, int, int, double>> positionalMultipliers =
+        new()
+        {
+            { PieceType.Pawn, GetPawnPositionalMultiplier },
+            { PieceType.Knight, GetCenterPositionalMultiplier },
+            { PieceType.Queen, GetCenterPositionalMultiplier }
+        };
+
     private int Evaluate(Board board)
     {
         var eval = 0;
+        
+        if (board.IsInCheckmate())
+        {
+            return board.IsWhiteToMove ? Int32.MinValue : Int32.MaxValue;
+        }
 
         if (board.IsDraw())
         {
             return eval;
         }
 
-        foreach (var piece in GetPieces(board))
+        foreach (PieceType pieceType in Enum.GetValues(typeof(PieceType)))
         {
-            // x1 near edges, x2 near center
-            // Index 3.5 is center
-            var positionMultiplier =
-                1 + (3.5 - Math.Min(Math.Abs(piece.Square.Rank - 3.5), Math.Abs(piece.Square.File - 3.5))) / 3.5;
-            eval += (int)(values[(int)piece.PieceType] * positionMultiplier) * (piece.IsWhite ? 1 : -1);
+            if (pieceType == PieceType.None) continue;
+            foreach (var isWhite in new[] {true, false})
+            {
+                var pieceList = board.GetPieceList(pieceType, isWhite);
+                foreach (var piece in pieceList)
+                {
+                    var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
+                        ? multiplierFunc(isWhite, piece.Square.Rank, piece.Square.File)
+                        : 1;
+                    eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
+                }
+            }
         }
 
         return eval;
