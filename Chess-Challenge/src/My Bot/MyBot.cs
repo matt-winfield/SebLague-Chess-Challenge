@@ -15,8 +15,6 @@ public class MyBot : IChessBot
         10000 // King
     };
 
-    private Array pieceTypes = Enum.GetValues(typeof(PieceType));
-    
     public Move Think(Board board, Timer timer)
     {
         var (score, move) = board.IsWhiteToMove ?
@@ -112,19 +110,16 @@ public class MyBot : IChessBot
             return eval;
         }
 
-        foreach (PieceType pieceType in pieceTypes)
+        foreach (var pieceList in board.GetAllPieceLists())
         {
+            var pieceType = pieceList.TypeOfPieceInList;
             if (pieceType == PieceType.None) continue;
-            foreach (var isWhite in new[] {true, false})
+            foreach (var piece in pieceList)
             {
-                var pieceList = board.GetPieceList(pieceType, isWhite);
-                foreach (var piece in pieceList)
-                {
-                    var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
-                        ? multiplierFunc(isWhite, piece.Square.Rank, piece.Square.File)
-                        : 1;
-                    eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
-                }
+                var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
+                    ? multiplierFunc(pieceList.IsWhitePieceList, piece.Square.Rank, piece.Square.File)
+                    : 1;
+                eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
             }
         }
 
