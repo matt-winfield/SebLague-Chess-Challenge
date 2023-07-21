@@ -17,14 +17,15 @@ public class MyBot : IChessBot
     public Move Think(Board board, Timer timer)
     {
         var (score, move) = alphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 5);
-        return move ?? board.GetLegalMoves()[0];
+        return move;
     }
 
-    private (int, Move?) alphaBetaMax(Board board, int alpha, int beta, int depthLeft)
+    private (int, Move) alphaBetaMax(Board board, int alpha, int beta, int depthLeft)
     {
         int score;
-        if (depthLeft == 0) return (Evaluate(board), null);
-        Move? bestMove = null;
+        var legalMoves = board.GetLegalMoves();
+        Move bestMove = legalMoves[0];
+        if (depthLeft == 0) return (Evaluate(board), bestMove);
         foreach (var move in board.GetLegalMoves())
         {
             board.MakeMove(move);
@@ -44,11 +45,12 @@ public class MyBot : IChessBot
         return (alpha, bestMove);
     }
     
-    private (int, Move?) alphaBetaMin(Board board, int alpha, int beta, int depthLeft)
+    private (int, Move) alphaBetaMin(Board board, int alpha, int beta, int depthLeft)
     {
         int score;
-        if (depthLeft == 0) return (-Evaluate(board), null);
-        Move? bestMove = null;
+        var legalMoves = board.GetLegalMoves();
+        Move bestMove = legalMoves[0];
+        if (depthLeft == 0) return (-Evaluate(board), bestMove);
         foreach (var move in board.GetLegalMoves())
         {
             board.MakeMove(move);
