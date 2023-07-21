@@ -129,19 +129,4 @@ public class MyBot : IChessBot
 
         return eval;
     }
-    
-    private Piece[] GetPieces(Board board)
-    {
-        var pieces = new List<Piece>();
-        for (int i = 0; i < 64; i++)
-        {
-            var piece = board.GetPiece(new Square(i));
-            if (!piece.IsNull)
-            {
-                pieces.Add(piece);
-            }
-        }
-
-        return pieces.ToArray();
-    }
 }
