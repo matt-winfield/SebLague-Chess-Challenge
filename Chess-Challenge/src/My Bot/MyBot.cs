@@ -16,58 +16,63 @@ public class MyBot : IChessBot
     
     public Move Think(Board board, Timer timer)
     {
-        var (score, move) = alphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 5);
+        var (score, move) = board.IsWhiteToMove ?
+            AlphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 2)
+            : AlphaBetaMin(board, Int32.MinValue, Int32.MaxValue, 2);
+        Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}");
         return move;
     }
 
-    private (int, Move) alphaBetaMax(Board board, int alpha, int beta, int depthLeft)
-    {
-        int score;
-        var legalMoves = board.GetLegalMoves();
-        Move bestMove = legalMoves[0];
-        if (depthLeft == 0) return (Evaluate(board), bestMove);
-        foreach (var move in board.GetLegalMoves())
-        {
-            board.MakeMove(move);
-            (score, _) = alphaBetaMin(board, alpha, beta, depthLeft - 1);
-            board.UndoMove(move);
-            if (score >= beta)
-            {
-                return (beta, bestMove); 
-            }
-            if (score > alpha)
-            {
-                alpha = score;
-                bestMove = move;
-            }
-        }
-
-        return (alpha, bestMove);
-    }
-    
-    private (int, Move) alphaBetaMin(Board board, int alpha, int beta, int depthLeft)
+    private (int, Move) AlphaBetaMax(Board board, int lowerBound, int upperBound, int depthLeft)
     {
         int score;
         var legalMoves = board.GetLegalMoves();
         Move bestMove = legalMoves[0];
         if (depthLeft == 0) return (-Evaluate(board), bestMove);
-        foreach (var move in board.GetLegalMoves())
+        foreach (var move in legalMoves)
         {
             board.MakeMove(move);
-            (score, _) = alphaBetaMax(board, alpha, beta, depthLeft - 1);
+            (score, _) = AlphaBetaMin(board, lowerBound, upperBound, depthLeft - 1);
+            Console.WriteLine($"Trying move {move}, depth {depthLeft}, state {board.GetFenString()}, score {score}");
             board.UndoMove(move);
-            if (score <= alpha)
+            if (score >= upperBound)
             {
-                return (alpha, bestMove); 
+                return (upperBound, bestMove); 
             }
-            if (score < beta)
+            if (score > lowerBound)
             {
-                beta = score;
+                lowerBound = score;
                 bestMove = move;
             }
         }
 
-        return (beta, bestMove);
+        return (lowerBound, bestMove);
+    }
+    
+    private (int, Move) AlphaBetaMin(Board board, int lowerBound, int upperBound, int depthLeft)
+    {
+        int score;
+        var legalMoves = board.GetLegalMoves();
+        Move bestMove = legalMoves[0];
+        if (depthLeft == 0) return (Evaluate(board), bestMove);
+        foreach (var move in legalMoves)
+        {
+            board.MakeMove(move);
+            (score, _) = AlphaBetaMax(board, lowerBound, upperBound, depthLeft - 1);
+            Console.WriteLine($"Trying move {move}, depth {depthLeft}, state {board.GetFenString()}, score {score}");
+            board.UndoMove(move);
+            if (score <= lowerBound)
+            {
+                return (lowerBound, bestMove); 
+            }
+            if (score < upperBound)
+            {
+                upperBound = score;
+                bestMove = move;
+            }
+        }
+
+        return (upperBound, bestMove);
     }
     
     private int Evaluate(Board board)
