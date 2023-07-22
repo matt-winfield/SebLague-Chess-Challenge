@@ -19,25 +19,25 @@ public class MyBot : IChessBot
     private static int positiveInfinity = 9999999;
     private static int negativeInfinity = -positiveInfinity;
     private static int mateScore = positiveInfinity - 1;
-    private int positionsEvaluated = 0;
 
     public Move Think(Board board, Timer timer)
     {
-        positionsEvaluated = 0;
         var (score, move) = Search(board, negativeInfinity, positiveInfinity, 5);
-        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, positions evaluated: {positionsEvaluated}, ttSize: {transpositionTable.Count}, fen: {board.GetFenString()}");
+        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, ttSize: {transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
     }
     
-    private (int, Move) Search(Board board, int alpha, int beta, int depthLeft)
+    private (int, Move) Search(Board board, int alpha, int beta, int depthLeft, int? initialDepth = null)
     {
+        initialDepth = initialDepth ?? depthLeft;
+        var plyDepth = initialDepth.Value - depthLeft;
         var legalMoves = GetOrderedLegalMoves(board);
         var bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
-        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves) * (board.IsWhiteToMove ? 1 : -1), bestMove);
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves, plyDepth) * (board.IsWhiteToMove ? 1 : -1), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
-            var (score, _) = Search(board, -beta, -alpha, depthLeft - 1);
+            var (score, _) = Search(board, -beta, -alpha, depthLeft - 1, initialDepth);
             score = -score;
             board.UndoMove(move);
             if (score >= beta)
@@ -100,16 +100,9 @@ public class MyBot : IChessBot
         }).ToArray();
     }
 
-    private int Evaluate(Board board, Move[] legalMoves)
+    private int Evaluate(Board board, Move[] legalMoves, int plyDepth = 0)
     {
         var ttKey = board.ZobristKey;
-
-        if (transpositionTable.ContainsKey(ttKey))
-        {
-            return transpositionTable[ttKey];
-        }
-
-        positionsEvaluated++;
         
         var eval = 0;
         if (legalMoves.Length == 0)
@@ -117,7 +110,8 @@ public class MyBot : IChessBot
             // No legal moves + check = checkmate
             if (board.IsInCheck())
             {
-                eval = mateScore * (board.IsWhiteToMove ? 1 : -1);
+                // Ply depth is used to make the bot prefer checkmates that happen sooner
+                eval = (mateScore - plyDepth) * (board.IsWhiteToMove ? -1 : 1);
             }
             else
             {
@@ -125,8 +119,13 @@ public class MyBot : IChessBot
                 return 0;
             }
 
-            transpositionTable.Add(ttKey, eval);
+            transpositionTable.TryAdd(ttKey, eval);
             return eval;
+        }
+        
+        if (transpositionTable.ContainsKey(ttKey))
+        {
+            return transpositionTable[ttKey];
         }
 
         foreach (var pieceList in board.GetAllPieceLists())
