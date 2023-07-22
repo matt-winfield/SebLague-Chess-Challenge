@@ -16,8 +16,9 @@ public class MyBot : IChessBot
         10000 // King
     };
 
-    private static int positiveInfinity = 99999999;
+    private static int positiveInfinity = 9999999;
     private static int negativeInfinity = -positiveInfinity;
+    private static int mateScore = positiveInfinity - 1;
     private int positionsEvaluated = 0;
 
     public Move Think(Board board, Timer timer)
@@ -116,7 +117,7 @@ public class MyBot : IChessBot
             // No legal moves + check = checkmate
             if (board.IsInCheck())
             {
-                eval = board.IsWhiteToMove ? negativeInfinity : positiveInfinity;
+                eval = mateScore * (board.IsWhiteToMove ? 1 : -1);
             }
             else
             {
