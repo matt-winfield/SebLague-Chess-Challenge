@@ -15,64 +15,41 @@ public class MyBot : IChessBot
         10000 // King
     };
 
+    private static int positiveInfinity = 99999999;
+    private static int negativeInfinity = -positiveInfinity;
+
     public Move Think(Board board, Timer timer)
     {
-        var (score, move) = board.IsWhiteToMove ?
-            AlphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 5)
-            : AlphaBetaMin(board, Int32.MinValue, Int32.MaxValue, 5);
+        var (score, move) = Search(board, negativeInfinity, positiveInfinity, 5);
         Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, fen: {board.GetFenString()}");
         return move;
     }
-
-    private (int, Move) AlphaBetaMax(Board board, int lowerBound, int upperBound, int depthLeft)
+    
+    private (int, Move) Search(Board board, int alpha, int beta, int depthLeft)
     {
-        int score;
         var legalMoves = board.GetLegalMoves();
-        Move bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
-        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves), bestMove);
+        var bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves) * (board.IsWhiteToMove ? 1 : -1), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
-            (score, _) = AlphaBetaMin(board, lowerBound, upperBound, depthLeft - 1);
+            var (score, _) = Search(board, -beta, -alpha, depthLeft - 1);
+            score = -score;
             board.UndoMove(move);
-            if (score >= upperBound)
+            if (score >= beta)
             {
-                return (upperBound, bestMove); 
+                // Opponent will not allow this move to happen because it's too good
+                return (beta, bestMove);
             }
-            if (score > lowerBound)
+
+            if (score > alpha)
             {
-                lowerBound = score;
+                alpha = score;
                 bestMove = move;
             }
         }
 
-        return (lowerBound, bestMove);
-    }
-
-    private (int, Move) AlphaBetaMin(Board board, int lowerBound, int upperBound, int depthLeft)
-    {
-        int score;
-        var legalMoves = board.GetLegalMoves();
-        Move bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
-        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves), bestMove);
-        foreach (var move in legalMoves)
-        {
-            board.MakeMove(move);
-            (score, _) = AlphaBetaMax(board, lowerBound, upperBound, depthLeft - 1);
-            board.UndoMove(move);
-            if (score <= lowerBound)
-            {
-                return (lowerBound, bestMove);
-            }
-
-            if (score < upperBound)
-            {
-                upperBound = score;
-                bestMove = move;
-            }
-        }
-
-        return (upperBound, bestMove);
+        return (alpha, bestMove);
     }
 
     private static double GetPawnPositionalMultiplier(bool isWhite, int rank, int file)
@@ -119,9 +96,10 @@ public class MyBot : IChessBot
             if (pieceType == PieceType.None) continue;
             foreach (var piece in pieceList)
             {
-                var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
-                    ? multiplierFunc(pieceList.IsWhitePieceList, piece.Square.Rank, piece.Square.File)
-                    : 1;
+                // var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
+                //     ? multiplierFunc(pieceList.IsWhitePieceList, piece.Square.Rank, piece.Square.File)
+                //     : 1;
+                var positionalMultiplier = 1;
                 eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
             }
         }
