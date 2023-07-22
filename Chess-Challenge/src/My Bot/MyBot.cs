@@ -63,7 +63,7 @@ public class MyBot : IChessBot
             return (0, new Move());
         }
         
-        initialDepth = initialDepth ?? depthLeft;
+        initialDepth ??= depthLeft;
         var plyDepth = initialDepth.Value - depthLeft;
         var legalMoves = GetOrderedLegalMoves(board);
         var bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
