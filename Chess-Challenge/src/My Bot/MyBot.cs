@@ -73,22 +73,35 @@ public class MyBot : IChessBot
             { PieceType.Knight, GetCenterPositionalMultiplier },
             { PieceType.Queen, GetCenterPositionalMultiplier }
         };
+    
+    private Dictionary<ulong, int> transpositionTable = new();
 
     private int Evaluate(Board board, Move[] legalMoves)
     {
+        var ttKey = board.ZobristKey;
+
+        if (transpositionTable.ContainsKey(ttKey))
+        {
+            return transpositionTable[ttKey];
+        }
+        
+        var eval = 0;
         if (legalMoves.Length == 0)
         {
             // No legal moves + check = checkmate
             if (board.IsInCheck())
             {
-                return board.IsWhiteToMove ? Int32.MinValue : Int32.MaxValue;
+                eval = board.IsWhiteToMove ? negativeInfinity : positiveInfinity;
+            }
+            else
+            {
+                // No legal moves + no check = stalemate
+                return 0;
             }
 
-            // No legal moves + no check = stalemate
-            return 0;
+            transpositionTable.Add(ttKey, eval);
+            return eval;
         }
-
-        var eval = 0;
 
         foreach (var pieceList in board.GetAllPieceLists())
         {
@@ -103,6 +116,7 @@ public class MyBot : IChessBot
             }
         }
 
+        transpositionTable.Add(ttKey, eval);
         return eval;
     }
 }
