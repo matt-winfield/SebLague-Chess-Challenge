@@ -19,16 +19,50 @@ public class MyBot : IChessBot
     private static int positiveInfinity = 9999999;
     private static int negativeInfinity = -positiveInfinity;
     private static int mateScore = positiveInfinity - 1;
+    private bool searchAborted = false;
 
     public Move Think(Board board, Timer timer)
     {
-        var (score, move) = Search(board, negativeInfinity, positiveInfinity, 5);
+        // Think for 1 second, or 1/3 the remaining time if there's less than 3 seconds left
+        var maxTimeMillis = timer.MillisecondsRemaining < 3000 ? timer.MillisecondsRemaining / 3 : 1000;
+
+        searchAborted = false;
+        var cancellationTimer = new System.Timers.Timer(maxTimeMillis);
+        cancellationTimer.Elapsed += (s, e) =>
+        {
+            searchAborted = true;
+            cancellationTimer.Stop();
+        };
+        cancellationTimer.Start();
+        
+        var (score, move) = IterativeDeepeningSearch(board, 10);
         Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
+    }
+
+    private (int, Move) IterativeDeepeningSearch(Board board, int maxDepth)
+    {
+        (int, Move) searchResult = (0, new Move());
+        var searchDepth = 1;
+        do
+        {
+            var result = Search(board, negativeInfinity, positiveInfinity, searchDepth);
+            if (!searchAborted)
+            {
+                searchResult = result;
+            }
+        } while (searchDepth++ < maxDepth && !searchAborted);
+
+        return searchResult;
     }
     
     private (int, Move) Search(Board board, int alpha, int beta, int depthLeft, int? initialDepth = null)
     {
+        if (searchAborted)
+        {
+            return (0, new Move());
+        }
+        
         initialDepth = initialDepth ?? depthLeft;
         var plyDepth = initialDepth.Value - depthLeft;
         var legalMoves = GetOrderedLegalMoves(board);
