@@ -20,7 +20,7 @@ public class MyBot : IChessBot
         var (score, move) = board.IsWhiteToMove ?
             AlphaBetaMax(board, Int32.MinValue, Int32.MaxValue, 5)
             : AlphaBetaMin(board, Int32.MinValue, Int32.MaxValue, 5);
-        Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}, fen: {board.GetFenString()}");
+        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, fen: {board.GetFenString()}");
         return move;
     }
 
@@ -29,7 +29,7 @@ public class MyBot : IChessBot
         int score;
         var legalMoves = board.GetLegalMoves();
         Move bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
-        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board), bestMove);
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
@@ -54,7 +54,7 @@ public class MyBot : IChessBot
         int score;
         var legalMoves = board.GetLegalMoves();
         Move bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
-        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board), bestMove);
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
@@ -97,18 +97,21 @@ public class MyBot : IChessBot
             { PieceType.Queen, GetCenterPositionalMultiplier }
         };
 
-    private int Evaluate(Board board)
+    private int Evaluate(Board board, Move[] legalMoves)
     {
-        if (board.IsInCheckmate())
+        if (legalMoves.Length == 0)
         {
-            return board.IsWhiteToMove ? Int32.MinValue : Int32.MaxValue;
+            // No legal moves + check = checkmate
+            if (board.IsInCheck())
+            {
+                return board.IsWhiteToMove ? Int32.MinValue : Int32.MaxValue;
+            }
+
+            // No legal moves + no check = stalemate
+            return 0;
         }
 
         var eval = 0;
-        if (board.IsDraw())
-        {
-            return eval;
-        }
 
         foreach (var pieceList in board.GetAllPieceLists())
         {
