@@ -171,6 +171,22 @@ namespace ChessChallenge.Application
             }
         }
 
+        public void HighlightPassedPawnSquares(Board board, int square, bool isWhite)
+        {
+            var rank = BoardHelper.RankIndex(square);
+            var file = BoardHelper.FileIndex(square);
+            
+            var pawnBitboard = MyBot.GetPassedPawnBitboard(rank, file, isWhite);
+            
+            for (int i = 0; i < 64; i++)
+            {
+                if ((pawnBitboard & (1ul << i)) != 0)
+                {
+                    OverrideSquareColour(i, HighlightType.LegalMove);
+                }
+            }
+        }
+        
         public void HighlightLegalMoves(Board board, int square)
         {
             MoveGenerator moveGenerator = new();
