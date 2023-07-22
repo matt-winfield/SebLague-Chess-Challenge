@@ -13,7 +13,7 @@ public class MyBot : IChessBot
         350, // Bishop
         525, // Rook
         1000, // Queen
-        10000 // King
+        200 // King - This value is used for the endgame, where the king is encouraged to move towards the enemy king
     };
 
     private static int positiveInfinity = 9999999;
@@ -35,7 +35,7 @@ public class MyBot : IChessBot
         };
         cancellationTimer.Start();
         
-        var (score, move) = IterativeDeepeningSearch(board, 5);
+        var (score, move) = IterativeDeepeningSearch(board, 10);
         Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
     }
@@ -109,12 +109,15 @@ public class MyBot : IChessBot
             case PieceType.Pawn:
                 return 1 + (
                    isWhite 
-                        ? (7 - rank) / 7d
-                        : rank / 7d
-                ) * 2 + 4 * endgameModifier;
+                        // Distance from the 7th rank, with bonus for the distance from horizontal center
+                        ? rank / 7d
+                        : (7 - rank) / 7d
+                ) * (1 + endgameModifier);
             case PieceType.Knight:
             case PieceType.Queen:
-                return 1 + (3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5d;
+                // Encourage pieces to move towards the center of the board towards the beginning of the game
+                // Multiply by (1.5 - endgameModifier) to reduce the effect of this as the game progresses
+                return 1 + ((3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5d) * (1.5 - endgameModifier);
             case PieceType.King:
                 double extraWeighting = 0;
                 var enemyKing = board.GetKingSquare(isWhite);
@@ -198,9 +201,21 @@ public class MyBot : IChessBot
         var pieceLists = board.GetAllPieceLists();
         var piecesRemaining = CountBits(board.AllPiecesBitboard);
         
-        // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 32 to 0 
+        // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 28 to 12 (i.e. the endgame)
         // Use to encourage the bot to act differently in the endgame
-        var endgameModifier = (32 - piecesRemaining) / 32d;
+        // 28 remaining pieces = 0; 12 remaining pieces = 1;
+        // x = 28, y = 0
+        // x = 12, y = 1
+        // y = mx + c
+        // 0 = 28m + c, 1 = 12m + c
+        // c = -28m
+        // 1 = 12m - 28m
+        // 1 = -16m
+        // m = -1/16
+        // c = 28/16
+        // y (endgame modifier) = -x/16 + 28/16, where x = piecesRemaining
+        // Clamp between 0 and 1
+        var endgameModifier = Math.Max(Math.Min(-piecesRemaining/20d + 32/20d, 0), 1);
         
         foreach (var pieceList in pieceLists)
         {
