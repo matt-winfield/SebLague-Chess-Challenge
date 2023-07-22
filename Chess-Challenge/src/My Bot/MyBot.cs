@@ -96,10 +96,9 @@ public class MyBot : IChessBot
             if (pieceType == PieceType.None) continue;
             foreach (var piece in pieceList)
             {
-                // var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
-                //     ? multiplierFunc(pieceList.IsWhitePieceList, piece.Square.Rank, piece.Square.File)
-                //     : 1;
-                var positionalMultiplier = 1;
+                var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
+                    ? multiplierFunc(pieceList.IsWhitePieceList, piece.Square.Rank, piece.Square.File)
+                    : 1;
                 eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
             }
         }
