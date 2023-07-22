@@ -35,7 +35,7 @@ public class MyBot : IChessBot
         };
         cancellationTimer.Start();
         
-        var (score, move) = IterativeDeepeningSearch(board, 10);
+        var (score, move) = IterativeDeepeningSearch(board, 5);
         Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
     }
@@ -108,7 +108,7 @@ public class MyBot : IChessBot
         {
             case PieceType.Pawn:
                 return 1 + (
-                    board.IsWhiteToMove
+                   isWhite 
                         ? (7 - rank) / 7d
                         : rank / 7d
                 ) * 2 + 4 * endgameModifier;
