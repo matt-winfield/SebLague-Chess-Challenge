@@ -43,7 +43,7 @@ namespace ChessChallenge.Application
                 if (boardUI.TryGetSquareAtPoint(mouseWorldPos, out int square))
                 {
                     int piece = board.Square[square];
-                    boardUI.HighlightPassedPawnSquares(board, square, PieceHelper.IsColour(piece, PieceHelper.White));
+                    // boardUI.HighlightPassedPawnSquares(board, square, PieceHelper.IsColour(piece, PieceHelper.White));
                     if (PieceHelper.IsColour(piece, board.IsWhiteToMove ? PieceHelper.White : PieceHelper.Black))
                     {
                         isDragging = true;

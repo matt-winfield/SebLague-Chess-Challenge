@@ -102,45 +102,37 @@ public class MyBot : IChessBot
                | 0x0101010101010101u << Math.Min(7, file + 1)); // Right file mask
     }
     
-    private static double GetPawnPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
+    private double GetPiecePositionalMultiplier(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
-        return 1 + (
-            board.IsWhiteToMove
-                ? (7 - rank) / 7d
-                : rank / 7d
-            ) * 2 + 4 * endgameModifier;
-    }
-
-    private static double GetKingPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
-    {
-        double extraWeighting = 0;
-        var enemyKing = board.GetKingSquare(isWhite);
-        
-        // Encourage our king to move towards the enemy king, to "box it in"
-        var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
-        extraWeighting += (14 - distanceFromEnemyKing) / 14d;
-        
-        // Encourage enemy king to move towards edge/corner
-        var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
-        extraWeighting += (3.5 - distanceFromCenter) / 3.5d;
-
-        return 1 + (extraWeighting * endgameModifier * endgameModifier);
-    }
-    
-    private static double GetCenterPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
-    {
-        return 1 + (3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5d;
-    }
-
-    private Dictionary<PieceType, Func<Board, bool, int, int, double, double>> positionalMultipliers =
-        new()
+        switch (pieceType)
         {
-            { PieceType.Pawn, GetPawnPositionalMultiplier },
-            { PieceType.Knight, GetCenterPositionalMultiplier },
-            { PieceType.Queen, GetCenterPositionalMultiplier },
-            { PieceType.King, GetKingPositionalMultiplier }
-        };
-    
+            case PieceType.Pawn:
+                return 1 + (
+                    board.IsWhiteToMove
+                        ? (7 - rank) / 7d
+                        : rank / 7d
+                ) * 2 + 4 * endgameModifier;
+            case PieceType.Knight:
+            case PieceType.Queen:
+                return 1 + (3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5d;
+            case PieceType.King:
+                double extraWeighting = 0;
+                var enemyKing = board.GetKingSquare(isWhite);
+
+                // Encourage our king to move towards the enemy king, to "box it in"
+                var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
+                extraWeighting += (14 - distanceFromEnemyKing) / 14d;
+
+                // Encourage enemy king to move towards edge/corner
+                var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
+                extraWeighting += (3.5 - distanceFromCenter) / 3.5d;
+
+                return 1 + (extraWeighting * endgameModifier * endgameModifier);
+        }
+
+        return 1;
+    }
+
     private readonly Dictionary<ulong, int> _transpositionTable = new();
 
     private Move[] GetOrderedLegalMoves(Board board, bool capturesOnly = false)
@@ -216,9 +208,8 @@ public class MyBot : IChessBot
             if (pieceType == PieceType.None) continue;
             foreach (var piece in pieceList)
             {
-                var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
-                    ? multiplierFunc(board, piece.IsWhite, piece.Square.Rank, piece.Square.File, endgameModifier)
-                    : 1;
+                var positionalMultiplier = GetPiecePositionalMultiplier(pieceType, board, piece.IsWhite,
+                    piece.Square.Rank, piece.Square.File, endgameModifier);
                 eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
             }
         }
