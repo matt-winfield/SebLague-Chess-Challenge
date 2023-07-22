@@ -23,7 +23,7 @@ public class MyBot : IChessBot
     public Move Think(Board board, Timer timer)
     {
         var (score, move) = Search(board, negativeInfinity, positiveInfinity, 5);
-        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, ttSize: {transpositionTable.Count}, fen: {board.GetFenString()}");
+        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
     }
     
@@ -55,27 +55,44 @@ public class MyBot : IChessBot
 
         return (alpha, bestMove);
     }
-
-    private static double GetPawnPositionalMultiplier(bool isWhite, int rank, int file)
+    
+    private static double GetPawnPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
         return 1 + (
-            isWhite
+            board.IsWhiteToMove
                 ? (7 - rank) / 7
                 : rank / 7
-            );
+            ) * 2 + 4 * endgameModifier;
+    }
+
+    private static double GetKingPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
+    {
+        double extraWeighting = 0;
+        var enemyKing = board.GetKingSquare(isWhite);
+        
+        // Encourage our king to move towards the enemy king, to "box it in"
+        var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
+        extraWeighting += (14 - distanceFromEnemyKing) / 14d;
+        
+        // Encourage enemy king to move towards edge/corner
+        var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
+        extraWeighting += (3.5 - distanceFromCenter) / 3.5;
+
+        return 1 + (extraWeighting * endgameModifier * endgameModifier);
     }
     
-    private static double GetCenterPositionalMultiplier(bool isWhite, int rank, int file)
+    private static double GetCenterPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
         return 1 + (3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5;
     }
 
-    private Dictionary<PieceType, Func<bool, int, int, double>> positionalMultipliers =
+    private Dictionary<PieceType, Func<Board, bool, int, int, double, double>> positionalMultipliers =
         new()
         {
             { PieceType.Pawn, GetPawnPositionalMultiplier },
             { PieceType.Knight, GetCenterPositionalMultiplier },
-            { PieceType.Queen, GetCenterPositionalMultiplier }
+            { PieceType.Queen, GetCenterPositionalMultiplier },
+            { PieceType.King, GetKingPositionalMultiplier }
         };
     
     private Dictionary<ulong, int> transpositionTable = new();
@@ -128,14 +145,21 @@ public class MyBot : IChessBot
             return transpositionTable[ttKey];
         }
 
-        foreach (var pieceList in board.GetAllPieceLists())
+        var pieceLists = board.GetAllPieceLists();
+        var piecesRemaining = CountBits(board.AllPiecesBitboard);
+        
+        // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 32 to 0 
+        // Use to encourage the bot to act differently in the endgame
+        var endgameModifier = (32 - piecesRemaining) / 32d;
+        
+        foreach (var pieceList in pieceLists)
         {
             var pieceType = pieceList.TypeOfPieceInList;
             if (pieceType == PieceType.None) continue;
             foreach (var piece in pieceList)
             {
                 var positionalMultiplier = positionalMultipliers.TryGetValue(pieceType, out var multiplierFunc)
-                    ? multiplierFunc(pieceList.IsWhitePieceList, piece.Square.Rank, piece.Square.File)
+                    ? multiplierFunc(board, piece.IsWhite, piece.Square.Rank, piece.Square.File, endgameModifier)
                     : 1;
                 eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
             }
@@ -143,5 +167,20 @@ public class MyBot : IChessBot
 
         transpositionTable.Add(ttKey, eval);
         return eval;
+    }
+    
+    private int CountBits(ulong n)
+    {
+        int count = 0;
+        while (n != 0)
+        {
+            // n - 1 will flip the rightmost 1 bit to 0 and all the bits to the right of it to 1
+            // e.g. 1000 -> 0111
+            // n & (n - 1) will therefore set the rightmost 1 bit, and all following bits, to 0
+            // If we keep doing this until the number is zero, the number of iterations will be the number of 1 bits
+            n &= (n - 1);
+            count++;
+        }
+        return count;
     }
 }
