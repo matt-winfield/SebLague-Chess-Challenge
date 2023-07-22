@@ -137,14 +137,26 @@ public class MyBot : IChessBot
         return legalMoves.OrderByDescending((move) =>
         {
             var score = 0;
+            
+            // Prioritise moves that capture pieces
             if (move.CapturePieceType != PieceType.None)
             {
                 score += values[(int)move.CapturePieceType];
             }
 
+            // Prioritise moves that promote pawns
             if (move.IsPromotion)
             {
                 score += values[(int)move.CapturePieceType];
+            }
+            
+            // Punish moves that cause the king to lose castling rights (we currently have castling rights, the move isn't a castling move, and the move is a king move)
+            if ((board.HasKingsideCastleRight(board.IsWhiteToMove) ||
+                 board.HasQueensideCastleRight(board.IsWhiteToMove)) 
+                && !move.IsCastles
+                && move.MovePieceType == PieceType.King)
+            {
+                    score -= 100;
             }
 
             return score;
