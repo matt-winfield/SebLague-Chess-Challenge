@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -17,17 +18,19 @@ public class MyBot : IChessBot
 
     private static int positiveInfinity = 99999999;
     private static int negativeInfinity = -positiveInfinity;
+    private int positionsEvaluated = 0;
 
     public Move Think(Board board, Timer timer)
     {
+        positionsEvaluated = 0;
         var (score, move) = Search(board, negativeInfinity, positiveInfinity, 5);
-        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, fen: {board.GetFenString()}");
+        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, positions evaluated: {positionsEvaluated}, ttSize: {transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
     }
     
     private (int, Move) Search(Board board, int alpha, int beta, int depthLeft)
     {
-        var legalMoves = board.GetLegalMoves();
+        var legalMoves = GetOrderedLegalMoves(board);
         var bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
         if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves) * (board.IsWhiteToMove ? 1 : -1), bestMove);
         foreach (var move in legalMoves)
@@ -76,6 +79,26 @@ public class MyBot : IChessBot
     
     private Dictionary<ulong, int> transpositionTable = new();
 
+    private Move[] GetOrderedLegalMoves(Board board, bool capturesOnly = false)
+    {
+        var legalMoves = board.GetLegalMoves(capturesOnly);
+        return legalMoves.OrderByDescending((move) =>
+        {
+            var score = 0;
+            if (move.CapturePieceType != PieceType.None)
+            {
+                score += values[(int)move.CapturePieceType];
+            }
+
+            if (move.IsPromotion)
+            {
+                score += values[(int)move.CapturePieceType];
+            }
+
+            return score;
+        }).ToArray();
+    }
+
     private int Evaluate(Board board, Move[] legalMoves)
     {
         var ttKey = board.ZobristKey;
@@ -84,6 +107,8 @@ public class MyBot : IChessBot
         {
             return transpositionTable[ttKey];
         }
+
+        positionsEvaluated++;
         
         var eval = 0;
         if (legalMoves.Length == 0)
