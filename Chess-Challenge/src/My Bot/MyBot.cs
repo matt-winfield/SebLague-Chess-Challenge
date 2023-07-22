@@ -92,14 +92,14 @@ public class MyBot : IChessBot
 
     public static ulong GetPassedPawnBitboard(int rank, int file, bool isWhite)
     {
-        var filesBitboard = 0x0101010101010101u << file
-                           | 0x0101010101010101u << Math.Max(0, file - 1)
-                           | 0x0101010101010101u << Math.Min(7, file + 1);
-        
-        var forwardMask = isWhite ? ulong.MaxValue << 8 * (rank + 1)
-            : ulong.MaxValue >> 8 * (8 - rank);
-
-        return forwardMask & filesBitboard;
+        return 
+            (isWhite // Forward mask
+                ? ulong.MaxValue << 8 * (rank + 1) // White, going up the board
+                : ulong.MaxValue >> 8 * (8 - rank)) // Black, going down the board
+            &
+                (0x0101010101010101u << file // File mask
+               | 0x0101010101010101u << Math.Max(0, file - 1) // Left file mask
+               | 0x0101010101010101u << Math.Min(7, file + 1)); // Right file mask
     }
     
     private static double GetPawnPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
