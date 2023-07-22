@@ -94,8 +94,8 @@ public class MyBot : IChessBot
     {
         return 1 + (
             board.IsWhiteToMove
-                ? (7 - rank) / 7
-                : rank / 7
+                ? (7 - rank) / 7d
+                : rank / 7d
             ) * 2 + 4 * endgameModifier;
     }
 
@@ -110,14 +110,14 @@ public class MyBot : IChessBot
         
         // Encourage enemy king to move towards edge/corner
         var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
-        extraWeighting += (3.5 - distanceFromCenter) / 3.5;
+        extraWeighting += (3.5 - distanceFromCenter) / 3.5d;
 
         return 1 + (extraWeighting * endgameModifier * endgameModifier);
     }
     
     private static double GetCenterPositionalMultiplier(Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
-        return 1 + (3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5;
+        return 1 + (3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5d;
     }
 
     private Dictionary<PieceType, Func<Board, bool, int, int, double, double>> positionalMultipliers =
@@ -129,7 +129,7 @@ public class MyBot : IChessBot
             { PieceType.King, GetKingPositionalMultiplier }
         };
     
-    private Dictionary<ulong, int> transpositionTable = new();
+    private readonly Dictionary<ulong, int> _transpositionTable = new();
 
     private Move[] GetOrderedLegalMoves(Board board, bool capturesOnly = false)
     {
@@ -156,7 +156,7 @@ public class MyBot : IChessBot
                 && !move.IsCastles
                 && move.MovePieceType == PieceType.King)
             {
-                    score -= 100;
+                    score -= 300;
             }
 
             return score;
@@ -182,13 +182,13 @@ public class MyBot : IChessBot
                 return 0;
             }
 
-            transpositionTable.TryAdd(ttKey, eval);
+            _transpositionTable.TryAdd(ttKey, eval);
             return eval;
         }
         
-        if (transpositionTable.ContainsKey(ttKey))
+        if (_transpositionTable.ContainsKey(ttKey))
         {
-            return transpositionTable[ttKey];
+            return _transpositionTable[ttKey];
         }
 
         var pieceLists = board.GetAllPieceLists();
@@ -211,7 +211,7 @@ public class MyBot : IChessBot
             }
         }
 
-        transpositionTable.Add(ttKey, eval);
+        _transpositionTable.Add(ttKey, eval);
         return eval;
     }
     
