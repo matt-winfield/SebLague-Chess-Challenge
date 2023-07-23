@@ -24,9 +24,9 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, Timer timer)
     {
-        // Average 50 moves per game, so we target 1/50th of the remaining time
+        // Average 40 moves per game, so we target 1/40th of the remaining time
         // Will move quicker as the game progresses / less time is remaining
-        var cancellationTimer = new System.Timers.Timer(timer.MillisecondsRemaining / 50);
+        var cancellationTimer = new System.Timers.Timer(timer.MillisecondsRemaining / 40);
         searchAborted = false;
         cancellationTimer.Elapsed += (s, e) =>
         {
@@ -46,7 +46,7 @@ public class MyBot : IChessBot
         
         // This is for debugging purposes only, comment it out so it doesn't use up tokens!
         // The ttMemory calculation is storing ints, so divide by 4 to get bytes, then divide by 1000000 to get MB
-        // Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 4d) / 1000000d}MB, fen: {board.GetFenString()}");
+        // Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, Depth: {searchDepth}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 4d) / 1000000d}MB, fen: {board.GetFenString()}");
         
         return move;
     }
@@ -162,8 +162,10 @@ public class MyBot : IChessBot
             {
                 score += values[(int)move.PromotionPieceType];
             }
-            
-            score += _transpositionTable.GetValueOrDefault(board.ZobristKey, 0) * (board.IsWhiteToMove ? 1 : -1);
+
+            board.MakeMove(move);
+            score += _transpositionTable.GetValueOrDefault(board.ZobristKey, 0) * (board.IsWhiteToMove ? -1 : 1);
+            board.UndoMove(move);
 
             return score;
         }).ToArray();
@@ -183,7 +185,7 @@ public class MyBot : IChessBot
             // Ply depth is used to make the bot prefer checkmates that happen sooner
             // 9999998 is one less than "infinity" used as initial alpha/beta values, one less to avoid beta comparison failing
             eval = (9999998 - plyDepth) * (board.IsWhiteToMove ? -1 : 1);
-            _transpositionTable.TryAdd(ttKey, eval);
+            _transpositionTable[ttKey] = eval;
             return eval;
         }
         
@@ -220,7 +222,7 @@ public class MyBot : IChessBot
             }
         }
 
-        _transpositionTable.Add(ttKey, eval);
+        _transpositionTable[ttKey] = eval;
         return eval;
     }
     
