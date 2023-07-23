@@ -18,9 +18,9 @@ public class MyBot : IChessBot
         200 // King - This value is used for the endgame, where the king is encouraged to move towards the enemy king
     };
 
-    private static int positiveInfinity = 9999999;
-    private static int negativeInfinity = -positiveInfinity;
-    private static int mateScore = positiveInfinity - 1;
+    private int positiveInfinity = 9999999;
+    private int negativeInfinity = -9999999;
+    private int mateScore = 9999998;
     private bool searchAborted;
 
     public Move Think(Board board, Timer timer)
@@ -45,7 +45,7 @@ public class MyBot : IChessBot
 
     private (int, Move) IterativeDeepeningSearch(Board board, int maxDepth)
     {
-        (int, Move) searchResult = (0, new Move());
+        var searchResult = (0, new Move());
         var searchDepth = 1;
         do
         {
@@ -67,10 +67,9 @@ public class MyBot : IChessBot
         }
         
         initialDepth ??= depthLeft;
-        var plyDepth = initialDepth.Value - depthLeft;
         var legalMoves = GetOrderedLegalMoves(board);
         var bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
-        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves, plyDepth) * (board.IsWhiteToMove ? 1 : -1), bestMove);
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves, initialDepth.Value - depthLeft) * (board.IsWhiteToMove ? 1 : -1), bestMove);
         foreach (var move in legalMoves)
         {
             board.MakeMove(move);
@@ -93,7 +92,7 @@ public class MyBot : IChessBot
         return (alpha, bestMove);
     }
 
-    public static ulong GetPassedPawnBitboard(int rank, int file, bool isWhite)
+    private ulong GetPassedPawnBitboard(int rank, int file, bool isWhite)
     {
         return 
             (isWhite // Forward mask
@@ -118,8 +117,7 @@ public class MyBot : IChessBot
     private int GetSquareValueFromMultiBitboard(long[] bitboards, int rank, int file, bool isWhite)
     {
         var correctedRank = isWhite ? rank : 7 - rank;
-        var correctedSquareIndex = correctedRank * 8 + file;
-        var binary = bitboards.Select(bitboard => ((bitboard >> correctedSquareIndex) & 1) != 0 ? "1" : "0").Aggregate((a, b) => a + b);
+        var binary = bitboards.Select(bitboard => ((bitboard >> (correctedRank * 8 + file)) & 1) != 0 ? "1" : "0").Aggregate((a, b) => a + b);
         return Convert.ToInt32(binary, 2);
     }
     
@@ -128,9 +126,12 @@ public class MyBot : IChessBot
         switch ((int)pieceType) // Using enum name uses more tokens than using the int value
         {
             case 1: // Pawn
+                var isPassed = (board.GetPieceBitboard(PieceType.Pawn, !isWhite) &
+                               GetPassedPawnBitboard(rank, file, isWhite)) == 0;
                 // This position table encourages pawns to move forward with an emphasis on the center of the board
                 // It places some importance on keeping pawns near the king to protect it
-                return 50 * GetSquareValueFromMultiBitboard(new []{ 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 }, rank, file, isWhite);
+                return (50 + (isPassed ? 200 : 0)) * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
+                    rank, file, isWhite);
             case 2: // Knight
                 // Encourage knights to move towards the center of the board
                 return 50 * GetSquareValueFromMultiBitboard(new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, rank, file, isWhite);
@@ -144,18 +145,16 @@ public class MyBot : IChessBot
                 // Slightly encourage queen towards center of board
                 return 50 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite);
             case 6: // King
-                int bonus = 0;
                 var enemyKing = board.GetKingSquare(isWhite);
 
                 // Encourage our king to move towards the enemy king, to "box it in"
                 var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
-                bonus += (int) (100 * ((14 - distanceFromEnemyKing) / 14d));
 
                 // Encourage enemy king to move towards edge/corner
                 var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
-                bonus += (int) (100 * ((3.5 - distanceFromCenter) / 3.5d));
 
-                return (int) (bonus * endgameModifier);
+                return (int)(((int)(100 * ((14 - distanceFromEnemyKing) / 14d)) +
+                              (int)(100 * ((3.5 - distanceFromCenter) / 3.5d))) * endgameModifier);
         }
 
         return 1;
@@ -267,7 +266,7 @@ public class MyBot : IChessBot
             // e.g. 1000 -> 0111
             // n & (n - 1) will therefore set the rightmost 1 bit, and all following bits, to 0
             // If we keep doing this until the number is zero, the number of iterations will be the number of 1 bits
-            n &= (n - 1);
+            n &= n - 1;
             count++;
         }
         return count;
