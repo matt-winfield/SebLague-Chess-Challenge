@@ -18,6 +18,7 @@ public class MyBot : IChessBot
         200 // King - This value is used for the endgame, where the king is encouraged to move towards the enemy king
     };
 
+    // Dictionary of zobrist keys to evaluation scores, to avoid re-evaluating the same position multiple times
     private readonly Dictionary<ulong, int> _transpositionTable = new();
     private bool searchAborted;
 
@@ -33,8 +34,7 @@ public class MyBot : IChessBot
             cancellationTimer.Stop();
         };
         cancellationTimer.Start();
-        
-        // var (score, move) = IterativeDeepeningSearch(board, 20);
+
         var (score, move) = (0, new Move());
         var searchDepth = 1;
         do
@@ -147,8 +147,7 @@ public class MyBot : IChessBot
 
     private Move[] GetOrderedLegalMoves(Board board, bool capturesOnly = false)
     {
-        var legalMoves = board.GetLegalMoves(capturesOnly);
-        return legalMoves.OrderByDescending((move) =>
+        return board.GetLegalMoves(capturesOnly).OrderByDescending(move =>
         {
             var score = 0;
             
@@ -161,17 +160,10 @@ public class MyBot : IChessBot
             // Prioritise moves that promote pawns
             if (move.IsPromotion)
             {
-                score += values[(int)move.CapturePieceType];
+                score += values[(int)move.PromotionPieceType];
             }
             
-            // Punish moves that cause the king to lose castling rights (we currently have castling rights, the move isn't a castling move, and the move is a king move)
-            if ((board.HasKingsideCastleRight(board.IsWhiteToMove) ||
-                 board.HasQueensideCastleRight(board.IsWhiteToMove)) 
-                && !move.IsCastles
-                && move.MovePieceType == PieceType.King)
-            {
-                    score -= 300;
-            }
+            score += _transpositionTable.GetValueOrDefault(board.ZobristKey, 0) * (board.IsWhiteToMove ? 1 : -1);
 
             return score;
         }).ToArray();
