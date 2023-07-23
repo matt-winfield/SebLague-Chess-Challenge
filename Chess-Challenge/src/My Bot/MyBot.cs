@@ -105,6 +105,16 @@ public class MyBot : IChessBot
                | 0x0101010101010101u << Math.Min(7, file + 1)); // Right file mask
     }
 
+    /**
+     * Use the concept of a "multi-bitboard" to store values for each square on the board.
+     * Use https://multibitsboard-generator.vercel.app/ to generate the bitboards.
+     * Each bitboard is a 64-bit integer, with each bit representing a square on the board.
+     * Read the value of each bitboard at the square index, and combine them to get the binary representation of the value.
+     * 
+     * This approach usually wouldn't be used for chess programming, as it's harder to work with and has a slightly higher
+     * computational cost for reading values than simply using a multi-dimensional array (not a significant amount, but still higher).
+     * However we need to minimise number of tokens used, and this approach uses significantly fewer.
+     */
     private int GetSquareValueFromMultiBitboard(long[] bitboards, int rank, int file, bool isWhite)
     {
         var correctedRank = isWhite ? rank : 7 - rank;
