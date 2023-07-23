@@ -39,7 +39,7 @@ public class MyBot : IChessBot
         cancellationTimer.Start();
         
         var (score, move) = IterativeDeepeningSearch(board, 10);
-        Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, fen: {board.GetFenString()}");
+        // Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
     }
 
@@ -105,45 +105,38 @@ public class MyBot : IChessBot
                | 0x0101010101010101u << Math.Min(7, file + 1)); // Right file mask
     }
 
-    private int GetSquareValueFromMultiBitboard(ulong[] bitboards, int squareIndex, bool isWhite)
+    private int GetSquareValueFromMultiBitboard(long[] bitboards, int rank, int file, bool isWhite)
     {
-        var rank = squareIndex >> 3;
-        var file = squareIndex & 0b000111;
         var correctedRank = isWhite ? rank : 7 - rank;
         var correctedSquareIndex = correctedRank * 8 + file;
         var binary = bitboards.Select(bitboard => ((bitboard >> correctedSquareIndex) & 1) != 0 ? "1" : "0").Aggregate((a, b) => a + b);
         return Convert.ToInt32(binary, 2);
     }
     
-    private double GetPiecePositionalMultiplier(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
+    private int GetPiecePositionalBonus(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
         switch (pieceType)
         {
             case PieceType.Pawn:
-                return 1 + (
-                   isWhite 
-                        // Distance from the 7th rank, with bonus for the distance from horizontal center
-                        ? rank / 7d
-                        : (7 - rank) / 7d
-                ) * (1 + endgameModifier);
+                return 50 * GetSquareValueFromMultiBitboard(new []{ 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 }, rank, file, isWhite);
             case PieceType.Knight:
             case PieceType.Queen:
                 // Encourage pieces to move towards the center of the board towards the beginning of the game
                 // Multiply by (1.5 - endgameModifier) to reduce the effect of this as the game progresses
-                return 1 + ((3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5d) * (1.5 - endgameModifier);
+                return (int) (100 * ((3.5 - Math.Min(Math.Abs(rank - 3.5), Math.Abs(file - 3.5))) / 3.5d) * (1.5 - endgameModifier));
             case PieceType.King:
-                double extraWeighting = 0;
+                int bonus = 0;
                 var enemyKing = board.GetKingSquare(isWhite);
 
                 // Encourage our king to move towards the enemy king, to "box it in"
                 var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
-                extraWeighting += (14 - distanceFromEnemyKing) / 14d;
+                bonus += (int) (100 * ((14 - distanceFromEnemyKing) / 14d));
 
                 // Encourage enemy king to move towards edge/corner
                 var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
-                extraWeighting += (3.5 - distanceFromCenter) / 3.5d;
+                bonus += (int) (100 * ((3.5 - distanceFromCenter) / 3.5d));
 
-                return 1 + (extraWeighting * endgameModifier * endgameModifier);
+                return (int) (bonus * endgameModifier);
         }
 
         return 1;
@@ -236,9 +229,9 @@ public class MyBot : IChessBot
             if (pieceType == PieceType.None) continue;
             foreach (var piece in pieceList)
             {
-                var positionalMultiplier = GetPiecePositionalMultiplier(pieceType, board, piece.IsWhite,
+                var positionalBonus = GetPiecePositionalBonus(pieceType, board, piece.IsWhite,
                     piece.Square.Rank, piece.Square.File, endgameModifier);
-                eval += (int)(values[(int)piece.PieceType] * positionalMultiplier) * (piece.IsWhite ? 1 : -1);
+                eval += values[(int)piece.PieceType] * (piece.IsWhite ? 1 : -1) + positionalBonus;
             }
         }
 
