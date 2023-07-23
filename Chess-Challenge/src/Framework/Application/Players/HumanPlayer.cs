@@ -14,6 +14,7 @@ namespace ChessChallenge.Application
         // State
         bool isDragging;
         int selectedSquare;
+        bool isTurnToMove;
 
 
         public HumanPlayer(BoardUI boardUI)
@@ -25,7 +26,7 @@ namespace ChessChallenge.Application
 
         public void NotifyTurnToMove()
         {
-
+            isTurnToMove = true;
         }
 
         public void SetPosition(string fen)
@@ -35,6 +36,10 @@ namespace ChessChallenge.Application
 
         public void Update()
         {
+            if (!isTurnToMove)
+            {
+                return;
+            }
             Vector2 mouseScreenPos = Raylib.GetMousePosition();
             Vector2 mouseWorldPos = Program.ScreenToWorldPos(mouseScreenPos);
 
@@ -43,7 +48,6 @@ namespace ChessChallenge.Application
                 if (boardUI.TryGetSquareAtPoint(mouseWorldPos, out int square))
                 {
                     int piece = board.Square[square];
-                    // boardUI.HighlightPassedPawnSquares(board, square, PieceHelper.IsColour(piece, PieceHelper.White));
                     if (PieceHelper.IsColour(piece, board.IsWhiteToMove ? PieceHelper.White : PieceHelper.Black))
                     {
                         isDragging = true;
@@ -99,6 +103,7 @@ namespace ChessChallenge.Application
 
             if (isLegal)
             {
+                isTurnToMove = false;
                 MoveChosen?.Invoke(move);
             }
         }

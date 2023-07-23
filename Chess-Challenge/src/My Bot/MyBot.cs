@@ -38,7 +38,7 @@ public class MyBot : IChessBot
         };
         cancellationTimer.Start();
         
-        var (score, move) = IterativeDeepeningSearch(board, 10);
+        var (score, move) = IterativeDeepeningSearch(board, 20);
         // Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, fen: {board.GetFenString()}");
         return move;
     }
