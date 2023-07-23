@@ -125,25 +125,25 @@ public class MyBot : IChessBot
     
     private int GetPiecePositionalBonus(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
-        switch (pieceType)
+        switch ((int)pieceType) // Using enum name uses more tokens than using the int value
         {
-            case PieceType.Pawn:
+            case 1: // Pawn
                 // This position table encourages pawns to move forward with an emphasis on the center of the board
                 // It places some importance on keeping pawns near the king to protect it
                 return 50 * GetSquareValueFromMultiBitboard(new []{ 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 }, rank, file, isWhite);
-            case PieceType.Knight:
+            case 2: // Knight
                 // Encourage knights to move towards the center of the board
                 return 50 * GetSquareValueFromMultiBitboard(new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, rank, file, isWhite);
-            case PieceType.Bishop:
+            case 3: // Bishop
                 // Encourage bishops to position on long diagonals
                 return 50 * GetSquareValueFromMultiBitboard(new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, rank, file, isWhite);
-            case PieceType.Rook:
+            case 4: // Rook
                 // Encourage rooks to position in the center-edge or cut off on second-last rank
                 return 50 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x81000000000018 }, rank, file, isWhite);
-            case PieceType.Queen:
+            case 5: // Queen
                 // Slightly encourage queen towards center of board
                 return 50 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite);
-            case PieceType.King:
+            case 6: // King
                 int bonus = 0;
                 var enemyKing = board.GetKingSquare(isWhite);
 
@@ -250,7 +250,7 @@ public class MyBot : IChessBot
             {
                 var positionalBonus = GetPiecePositionalBonus(pieceType, board, piece.IsWhite,
                     piece.Square.Rank, piece.Square.File, endgameModifier);
-                eval += values[(int)piece.PieceType] * (piece.IsWhite ? 1 : -1) + positionalBonus;
+                eval += (values[(int)piece.PieceType] + positionalBonus) * (piece.IsWhite ? 1 : -1);
             }
         }
 
