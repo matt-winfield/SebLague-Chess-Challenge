@@ -18,9 +18,6 @@ public class MyBot : IChessBot
         200 // King - This value is used for the endgame, where the king is encouraged to move towards the enemy king
     };
 
-    private int positiveInfinity = 9999999;
-    private int negativeInfinity = -9999999;
-    private int mateScore = 9999998;
     private bool searchAborted;
 
     public Move Think(Board board, Timer timer)
@@ -49,7 +46,8 @@ public class MyBot : IChessBot
         var searchDepth = 1;
         do
         {
-            var result = Search(board, negativeInfinity, positiveInfinity, searchDepth);
+            // 9999999 and -9999999 are used as "infinity" values for alpha and beta
+            var result = Search(board, -9999999, 9999999, searchDepth);
             if (!searchAborted)
             {
                 searchResult = result;
@@ -198,21 +196,18 @@ public class MyBot : IChessBot
     {
         var ttKey = board.ZobristKey;
         
-        var eval = 0;
+        int eval = 0;
         if (legalMoves.Length == 0)
         {
-            // No legal moves + check = checkmate
-            if (board.IsInCheck())
+            // No legal moves + no check = stalemate
+            if (!board.IsInCheck())
             {
-                // Ply depth is used to make the bot prefer checkmates that happen sooner
-                eval = (mateScore - plyDepth) * (board.IsWhiteToMove ? -1 : 1);
-            }
-            else
-            {
-                // No legal moves + no check = stalemate
                 return 0;
             }
-
+            // No legal moves + check = checkmate
+            // Ply depth is used to make the bot prefer checkmates that happen sooner
+            // 9999998 is one less than "infinity" used as initial alpha/beta values, one less to avoid beta comparison failing
+            eval = (9999998 - plyDepth) * (board.IsWhiteToMove ? -1 : 1);
             _transpositionTable.TryAdd(ttKey, eval);
             return eval;
         }
@@ -221,9 +216,6 @@ public class MyBot : IChessBot
         {
             return _transpositionTable[ttKey];
         }
-
-        var pieceLists = board.GetAllPieceLists();
-        var piecesRemaining = CountBits(board.AllPiecesBitboard);
         
         // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 28 to 12 (i.e. the endgame)
         // Use to encourage the bot to act differently in the endgame
@@ -239,9 +231,9 @@ public class MyBot : IChessBot
         // c = 28/16
         // y (endgame modifier) = -x/16 + 28/16, where x = piecesRemaining
         // Clamp between 0 and 1
-        var endgameModifier = Math.Max(Math.Min(-piecesRemaining/20d + 32/20d, 0), 1);
+        var endgameModifier = Math.Max(Math.Min(-CountBits(board.AllPiecesBitboard)/20d + 32/20d, 0), 1);
         
-        foreach (var pieceList in pieceLists)
+        foreach (var pieceList in board.GetAllPieceLists())
         {
             var pieceType = pieceList.TypeOfPieceInList;
             if (pieceType == PieceType.None) continue;
