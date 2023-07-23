@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using ChessChallenge.API;
+using Board = ChessChallenge.API.Board;
+using Move = ChessChallenge.API.Move;
 
 public class MyBot : IChessBot
 {
@@ -19,12 +21,13 @@ public class MyBot : IChessBot
     private static int positiveInfinity = 9999999;
     private static int negativeInfinity = -positiveInfinity;
     private static int mateScore = positiveInfinity - 1;
-    private bool searchAborted = false;
+    private bool searchAborted;
 
     public Move Think(Board board, Timer timer)
     {
-        // Think for 1 second, or 1/3 the remaining time if there's less than 3 seconds left
-        var maxTimeMillis = timer.MillisecondsRemaining < 3000 ? timer.MillisecondsRemaining / 3 : 1000;
+        // Average 50 moves per game, so we target 1/50th of the remaining time
+        // Will move quicker as the game progresses / less time is remaining
+        var maxTimeMillis = timer.MillisecondsRemaining / 50;
 
         searchAborted = false;
         var cancellationTimer = new System.Timers.Timer(maxTimeMillis);
@@ -100,6 +103,16 @@ public class MyBot : IChessBot
                 (0x0101010101010101u << file // File mask
                | 0x0101010101010101u << Math.Max(0, file - 1) // Left file mask
                | 0x0101010101010101u << Math.Min(7, file + 1)); // Right file mask
+    }
+
+    private int GetSquareValueFromMultiBitboard(ulong[] bitboards, int squareIndex, bool isWhite)
+    {
+        var rank = squareIndex >> 3;
+        var file = squareIndex & 0b000111;
+        var correctedRank = isWhite ? rank : 7 - rank;
+        var correctedSquareIndex = correctedRank * 8 + file;
+        var binary = bitboards.Select(bitboard => ((bitboard >> correctedSquareIndex) & 1) != 0 ? "1" : "0").Aggregate((a, b) => a + b);
+        return Convert.ToInt32(binary, 2);
     }
     
     private double GetPiecePositionalMultiplier(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
