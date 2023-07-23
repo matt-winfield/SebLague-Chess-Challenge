@@ -177,10 +177,8 @@ public class MyBot : IChessBot
         if (legalMoves.Length == 0)
         {
             // No legal moves + no check = stalemate
-            if (!board.IsInCheck())
-            {
-                return 0;
-            }
+            if (!board.IsInCheck()) return 0;
+            
             // No legal moves + check = checkmate
             // Ply depth is used to make the bot prefer checkmates that happen sooner
             // 9999998 is one less than "infinity" used as initial alpha/beta values, one less to avoid beta comparison failing
