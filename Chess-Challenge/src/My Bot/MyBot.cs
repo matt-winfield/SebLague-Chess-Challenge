@@ -36,7 +36,11 @@ public class MyBot : IChessBot
         cancellationTimer.Start();
         
         var (score, move) = IterativeDeepeningSearch(board, 20);
-        // Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, fen: {board.GetFenString()}");
+        
+        // This is for debugging purposes only, comment it out so it doesn't use up tokens!
+        // The ttMemory calculation is storing ints, so divide by 4 to get bytes, then divide by 1000000 to get MB
+        // Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 4d) / 1000000d}MB, fen: {board.GetFenString()}");
+        
         return move;
     }
 
