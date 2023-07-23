@@ -18,16 +18,15 @@ public class MyBot : IChessBot
         200 // King - This value is used for the endgame, where the king is encouraged to move towards the enemy king
     };
 
+    private readonly Dictionary<ulong, int> _transpositionTable = new();
     private bool searchAborted;
 
     public Move Think(Board board, Timer timer)
     {
         // Average 50 moves per game, so we target 1/50th of the remaining time
         // Will move quicker as the game progresses / less time is remaining
-        var maxTimeMillis = timer.MillisecondsRemaining / 50;
-
+        var cancellationTimer = new System.Timers.Timer(timer.MillisecondsRemaining / 50);
         searchAborted = false;
-        var cancellationTimer = new System.Timers.Timer(maxTimeMillis);
         cancellationTimer.Elapsed += (s, e) =>
         {
             searchAborted = true;
@@ -35,7 +34,15 @@ public class MyBot : IChessBot
         };
         cancellationTimer.Start();
         
-        var (score, move) = IterativeDeepeningSearch(board, 20);
+        // var (score, move) = IterativeDeepeningSearch(board, 20);
+        var (score, move) = (0, new Move());
+        var searchDepth = 1;
+        do
+        {
+            // 9999999 and -9999999 are used as "infinity" values for alpha and beta
+            var result = Search(board, -9999999, 9999999, searchDepth);
+            if (!searchAborted) (score, move) = result;
+        } while (searchDepth++ < 20 && !searchAborted); // 20 is the max depth
         
         // This is for debugging purposes only, comment it out so it doesn't use up tokens!
         // The ttMemory calculation is storing ints, so divide by 4 to get bytes, then divide by 1000000 to get MB
@@ -43,34 +50,14 @@ public class MyBot : IChessBot
         
         return move;
     }
-
-    private (int, Move) IterativeDeepeningSearch(Board board, int maxDepth)
-    {
-        var searchResult = (0, new Move());
-        var searchDepth = 1;
-        do
-        {
-            // 9999999 and -9999999 are used as "infinity" values for alpha and beta
-            var result = Search(board, -9999999, 9999999, searchDepth);
-            if (!searchAborted)
-            {
-                searchResult = result;
-            }
-        } while (searchDepth++ < maxDepth && !searchAborted);
-
-        return searchResult;
-    }
     
     private (int, Move) Search(Board board, int alpha, int beta, int depthLeft, int? initialDepth = null)
     {
-        if (searchAborted)
-        {
-            return (0, new Move());
-        }
+        if (searchAborted) return (0, new Move());
         
         initialDepth ??= depthLeft;
         var legalMoves = GetOrderedLegalMoves(board);
-        var bestMove = legalMoves.Length > 0 ? legalMoves[0] : new Move();
+        var bestMove = legalMoves.FirstOrDefault(new Move());
         if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves, initialDepth.Value - depthLeft) * (board.IsWhiteToMove ? 1 : -1), bestMove);
         foreach (var move in legalMoves)
         {
@@ -84,19 +71,15 @@ public class MyBot : IChessBot
                 return (beta, bestMove);
             }
 
-            if (score > alpha)
-            {
-                alpha = score;
-                bestMove = move;
-            }
+            if (score <= alpha) continue;
+            alpha = score;
+            bestMove = move;
         }
 
         return (alpha, bestMove);
     }
 
-    private ulong GetPassedPawnBitboard(int rank, int file, bool isWhite)
-    {
-        return 
+    private ulong GetPassedPawnBitboard(int rank, int file, bool isWhite) =>
             (isWhite // Forward mask
                 ? ulong.MaxValue << 8 * (rank + 1) // White, going up the board
                 : ulong.MaxValue >> 8 * (8 - rank)) // Black, going down the board
@@ -104,7 +87,6 @@ public class MyBot : IChessBot
                 (0x0101010101010101u << file // File mask
                | 0x0101010101010101u << Math.Max(0, file - 1) // Left file mask
                | 0x0101010101010101u << Math.Min(7, file + 1)); // Right file mask
-    }
 
     /**
      * Use the concept of a "multi-bitboard" to store values for each square on the board.
@@ -162,7 +144,6 @@ public class MyBot : IChessBot
         return 1;
     }
 
-    private readonly Dictionary<ulong, int> _transpositionTable = new();
 
     private Move[] GetOrderedLegalMoves(Board board, bool capturesOnly = false)
     {
