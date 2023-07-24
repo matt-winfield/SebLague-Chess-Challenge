@@ -5,7 +5,7 @@ using ChessChallenge.API;
 using Board = ChessChallenge.API.Board;
 using Move = ChessChallenge.API.Move;
 
-public class MyBot : IChessBot
+public class BotV7_TimingStrategy : IChessBot
 {
     private int[] values = 
     {
@@ -115,20 +115,20 @@ public class MyBot : IChessBot
                                GetPassedPawnBitboard(rank, file, isWhite)) == 0;
                 // This position table encourages pawns to move forward with an emphasis on the center of the board
                 // It places some importance on keeping pawns near the king to protect it
-                return (10 + (isPassed ? 200 : 0)) * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
+                return (50 + (isPassed ? 200 : 0)) * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
                     rank, file, isWhite);
             case 2: // Knight
                 // Encourage knights to move towards the center of the board
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, rank, file, isWhite);
+                return 50 * GetSquareValueFromMultiBitboard(new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, rank, file, isWhite);
             case 3: // Bishop
                 // Encourage bishops to position on long diagonals
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, rank, file, isWhite);
+                return 50 * GetSquareValueFromMultiBitboard(new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, rank, file, isWhite);
             case 4: // Rook
                 // Encourage rooks to position in the center-edge or cut off on second-last rank
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x81000000000018 }, rank, file, isWhite);
+                return 50 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x81000000000018 }, rank, file, isWhite);
             case 5: // Queen
                 // Slightly encourage queen towards center of board
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite);
+                return 50 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite);
             case 6: // King
                 var enemyKing = board.GetKingSquare(isWhite);
 
@@ -138,8 +138,8 @@ public class MyBot : IChessBot
                 // Encourage enemy king to move towards edge/corner
                 var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
 
-                return (int)(((int)(10 * ((14 - distanceFromEnemyKing) / 14d)) +
-                              (int)(10 * ((3.5 - distanceFromCenter) / 3.5d))) * endgameModifier);
+                return (int)(((int)(100 * ((14 - distanceFromEnemyKing) / 14d)) +
+                              (int)(100 * ((3.5 - distanceFromCenter) / 3.5d))) * endgameModifier);
         }
 
         return 1;
