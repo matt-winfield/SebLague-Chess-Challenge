@@ -24,9 +24,10 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, Timer timer)
     {
-        // Average 40 moves per game, so we target 1/40th of the remaining time
+        // Average 40 moves per game, so we start targetting 1/40th of the remaining time
         // Will move quicker as the game progresses / less time is remaining
-        var cancellationTimer = new System.Timers.Timer(timer.MillisecondsRemaining / 40);
+        // Minimum 1/10 of the remaining time, to avoid timing out, divide by zero errors or negative numbers
+        var cancellationTimer = new System.Timers.Timer(timer.MillisecondsRemaining / Math.Max(40 - (board.PlyCount / 2), 10));
         searchAborted = false;
         cancellationTimer.Elapsed += (s, e) =>
         {
