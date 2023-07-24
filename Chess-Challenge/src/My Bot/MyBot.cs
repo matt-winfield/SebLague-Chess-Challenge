@@ -144,7 +144,7 @@ public class MyBot : IChessBot
                                GetPassedPawnBitboard(rank, file, isWhite)) == 0;
                 // This position table encourages pawns to move forward with an emphasis on the center of the board
                 // It places some importance on keeping pawns near the king to protect it
-                return (10 + (isPassed ? 200 : 0)) * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
+                return (10 + (isPassed ? 50 : 0)) * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
                     rank, file, isWhite);
             case 2: // Knight
                 // Encourage knights to move towards the center of the board
@@ -154,7 +154,7 @@ public class MyBot : IChessBot
                 return 10 * GetSquareValueFromMultiBitboard(new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, rank, file, isWhite);
             case 4: // Rook
                 // Encourage rooks to position in the center-edge or cut off on second-last rank
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x81000000000018 }, rank, file, isWhite);
+                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x8100000000003c }, rank, file, isWhite);
             case 5: // Queen
                 // Slightly encourage queen towards center of board
                 return 10 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite);
@@ -165,10 +165,15 @@ public class MyBot : IChessBot
                 var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
 
                 // Encourage enemy king to move towards edge/corner
-                var distanceFromCenter = Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5);
+                var enemyKingDistanceFromCenter = (int) (Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5));
 
-                return (int)(((int)(10 * ((14 - distanceFromEnemyKing) / 14d)) +
-                              (int)(10 * ((3.5 - distanceFromCenter) / 3.5d))) * endgameModifier);
+                var boxInKingBonus = distanceFromEnemyKing + enemyKingDistanceFromCenter;
+                return
+                    // Encourage king to take shelter behind pawns at start of the game
+                    (int)(10 * GetSquareValueFromMultiBitboard(new[] { 0xc3L, 0x66L }, rank, file, isWhite) *
+                          (1 - endgameModifier))
+                    // Encourage king to "box in" enemy king at end of the game
+                    + (int)(10 * boxInKingBonus * endgameModifier);
         }
 
         return 1;
