@@ -5,7 +5,7 @@ using ChessChallenge.API;
 using Board = ChessChallenge.API.Board;
 using Move = ChessChallenge.API.Move;
 
-public class MyBot : IChessBot
+public class BotV8_TweakedPositionalValues : IChessBot
 {
     private int[] values = 
     {
@@ -18,11 +18,8 @@ public class MyBot : IChessBot
         200 // King - This value is used for the endgame, where the king is encouraged to move towards the enemy king
     };
 
-    // Dictionary of zobrist keys to evaluation scores (Item1), the depth the position was evaluated to (Item2), and the best move in that position (Item3)
-    // Used to avoid re-evaluating the same position multiple times
-    private readonly Dictionary<ulong, (int, int, Move)> _transpositionTable = new();
-    private Move _bestMove;
-    private Move _bestMoveThisIteration;
+    // Dictionary of zobrist keys to evaluation scores, to avoid re-evaluating the same position multiple times
+    private readonly Dictionary<ulong, int> _transpositionTable = new();
     private bool searchAborted;
 
     public Move Think(Board board, Timer timer)
@@ -39,76 +36,48 @@ public class MyBot : IChessBot
         };
         cancellationTimer.Start();
 
-        int score;
+        var (score, move) = (0, new Move());
         var searchDepth = 1;
-        _bestMoveThisIteration = _bestMove = Move.NullMove;
         do
         {
             // 9999999 and -9999999 are used as "infinity" values for alpha and beta
-            score = Search(board, -9999999, 9999999, searchDepth, 0);
-            _bestMove = _bestMoveThisIteration;
+            var result = Search(board, -9999999, 9999999, searchDepth);
+            if (!searchAborted) (score, move) = result;
         } while (searchDepth++ < 20 && !searchAborted); // 20 is the max depth
         
         // This is for debugging purposes only, comment it out so it doesn't use up tokens!
-        // The ttMemory calculation is storing 2 ints, so divide by 2 to get bytes, then divide by 1000000 to get MB
-        // Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}, Result: {_bestMove}, Depth: {searchDepth}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 2d) / 1000000d}MB, fen: {board.GetFenString()}");
+        // The ttMemory calculation is storing ints, so divide by 4 to get bytes, then divide by 1000000 to get MB
+        // Console.WriteLine($"Current eval: {Evaluate(board, board.GetLegalMoves())}, Best move score: {score}, Result: {move}, Depth: {searchDepth}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 4d) / 1000000d}MB, fen: {board.GetFenString()}");
         
-        return _bestMove;
+        return move;
     }
     
-    private int Search(Board board, int alpha, int beta, int depthLeft, int plyFromRoot)
+    private (int, Move) Search(Board board, int alpha, int beta, int depthLeft, int? initialDepth = null)
     {
-        // If the current position has already been evaluated to at least the same depth, return the stored value
-        if (_transpositionTable.TryGetValue(board.ZobristKey, out var value) && value.Item2 >= depthLeft)
-        {
-            if (plyFromRoot == 0)
-                _bestMoveThisIteration = value.Item3;
-            
-            return value.Item1;
-        }
+        if (searchAborted) return (0, new Move());
         
-        var legalMoves = GetOrderedLegalMoves(board, plyFromRoot);
-        if (legalMoves.Length == 0)
-        {
-            // No legal moves + no check = stalemate
-            if (!board.IsInCheck()) return 0;
-            
-            // No legal moves + check = checkmate
-            // Ply depth is used to make the bot prefer checkmates that happen sooner
-            // 9999998 is one less than "infinity" used as initial alpha/beta values, one less to avoid beta comparison failing
-            return -9999998 + plyFromRoot;
-        }
-        
-        if (depthLeft == 0)
-            return Evaluate(board);
-
-        var bestMoveInPosition = legalMoves[0];
+        initialDepth ??= depthLeft;
+        var legalMoves = GetOrderedLegalMoves(board);
+        var bestMove = legalMoves.FirstOrDefault(new Move());
+        if (depthLeft == 0 || legalMoves.Length == 0) return (Evaluate(board, legalMoves, initialDepth.Value - depthLeft) * (board.IsWhiteToMove ? 1 : -1), bestMove);
         foreach (var move in legalMoves)
         {
-            if (searchAborted) break;
             board.MakeMove(move);
-            var eval = -Search(board, -beta, -alpha, depthLeft - 1, plyFromRoot + 1);
+            var (score, _) = Search(board, -beta, -alpha, depthLeft - 1, initialDepth);
+            score = -score;
             board.UndoMove(move);
-            if (eval >= beta)
-                // Opponent will not allow this move to happen because it's too good
-                return beta;
-
-            // New best move found
-            if (eval > alpha)
+            if (score >= beta)
             {
-                alpha = eval;
-                bestMoveInPosition = move;
+                // Opponent will not allow this move to happen because it's too good
+                return (beta, bestMove);
             }
+
+            if (score <= alpha) continue;
+            alpha = score;
+            bestMove = move;
         }
 
-        if (plyFromRoot == 0)
-        {
-            _bestMoveThisIteration = bestMoveInPosition;
-        }
-
-        _transpositionTable[board.ZobristKey] = (alpha, depthLeft, bestMoveInPosition);
-
-        return alpha;
+        return (alpha, bestMove);
     }
 
     private ulong GetPassedPawnBitboard(int rank, int file, bool isWhite) =>
@@ -177,14 +146,10 @@ public class MyBot : IChessBot
     }
 
 
-    private Move[] GetOrderedLegalMoves(Board board, int plyFromRoot, bool capturesOnly = false)
+    private Move[] GetOrderedLegalMoves(Board board, bool capturesOnly = false)
     {
         return board.GetLegalMoves(capturesOnly).OrderByDescending(move =>
         {
-            // Always start with the best move from the previous iteration
-            if (plyFromRoot == 0 && _bestMove.Equals(move))
-                return 9999999;
-            
             var score = 0;
             
             // Prioritise moves that capture pieces
@@ -199,15 +164,37 @@ public class MyBot : IChessBot
                 score += values[(int)move.PromotionPieceType];
             }
 
+            board.MakeMove(move);
+            score += _transpositionTable.GetValueOrDefault(board.ZobristKey, 0) * (board.IsWhiteToMove ? -1 : 1);
+            board.UndoMove(move);
+
             return score;
         }).ToArray();
     }
 
-    /**
-     * Evaluate the current position. Score is from the perspective of the player to move, where positive is winning.
-     */
-    private int Evaluate(Board board)
+    private int Evaluate(Board board, Move[] legalMoves, int plyDepth = 0)
     {
+        var ttKey = board.ZobristKey;
+        
+        int eval = 0;
+        if (legalMoves.Length == 0)
+        {
+            // No legal moves + no check = stalemate
+            if (!board.IsInCheck()) return 0;
+            
+            // No legal moves + check = checkmate
+            // Ply depth is used to make the bot prefer checkmates that happen sooner
+            // 9999998 is one less than "infinity" used as initial alpha/beta values, one less to avoid beta comparison failing
+            eval = (9999998 - plyDepth) * (board.IsWhiteToMove ? -1 : 1);
+            _transpositionTable[ttKey] = eval;
+            return eval;
+        }
+        
+        if (_transpositionTable.ContainsKey(ttKey))
+        {
+            return _transpositionTable[ttKey];
+        }
+        
         // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 28 to 12 (i.e. the endgame)
         // Use to encourage the bot to act differently in the endgame
         // 28 remaining pieces = 0; 12 remaining pieces = 1;
@@ -224,7 +211,6 @@ public class MyBot : IChessBot
         // Clamp between 0 and 1
         var endgameModifier = Math.Max(Math.Min(-CountBits(board.AllPiecesBitboard)/20d + 32/20d, 0), 1);
         
-        int eval = 0;
         foreach (var pieceList in board.GetAllPieceLists())
         {
             var pieceType = pieceList.TypeOfPieceInList;
@@ -237,7 +223,8 @@ public class MyBot : IChessBot
             }
         }
 
-        return eval * (board.IsWhiteToMove ? 1 : -1);
+        _transpositionTable[ttKey] = eval;
+        return eval;
     }
     
     private int CountBits(ulong n)

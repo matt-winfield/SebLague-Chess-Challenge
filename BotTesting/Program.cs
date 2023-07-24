@@ -2,11 +2,11 @@
 
 using ChessChallenge.API;
 
+var board = new ChessChallenge.Chess.Board();
+var bot = new MyBot();
 while (true)
 {
-    var bot = new MyBot();
-    var board = new ChessChallenge.Chess.Board();
-    var timer = new ChessChallenge.API.Timer(60000);
+    var timer = new ChessChallenge.API.Timer(10000);
 
     Console.WriteLine("Enter FEN:");
     var fen = Console.ReadLine();

@@ -35,6 +35,9 @@
     <Compile Update="src\Previous Bot Versions\BotV7_TimingStrategy.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
+    <Compile Update="src\Previous Bot Versions\BotV8_TweakedPositionalValues.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
