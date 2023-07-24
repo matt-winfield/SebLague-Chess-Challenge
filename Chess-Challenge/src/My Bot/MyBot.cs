@@ -22,7 +22,6 @@ public class MyBot : IChessBot
     // Used to avoid re-evaluating the same position multiple times
     private readonly Dictionary<ulong, (int, int, Move)> _transpositionTable = new();
     private Move _bestMove;
-    private Move _bestMoveThisIteration;
     private bool searchAborted;
 
     public Move Think(Board board, Timer timer)
@@ -41,12 +40,11 @@ public class MyBot : IChessBot
 
         int score;
         var searchDepth = 1;
-        _bestMoveThisIteration = _bestMove = Move.NullMove;
+        _bestMove = Move.NullMove;
         do
         {
             // 9999999 and -9999999 are used as "infinity" values for alpha and beta
             score = Search(board, -9999999, 9999999, searchDepth, 0);
-            _bestMove = _bestMoveThisIteration;
         } while (searchDepth++ < 20 && !searchAborted); // 20 is the max depth
         
         // This is for debugging purposes only, comment it out so it doesn't use up tokens!
@@ -62,7 +60,7 @@ public class MyBot : IChessBot
         if (_transpositionTable.TryGetValue(board.ZobristKey, out var value) && value.Item2 >= depthLeft)
         {
             if (plyFromRoot == 0)
-                _bestMoveThisIteration = value.Item3;
+                _bestMove = value.Item3;
             
             return value.Item1;
         }
@@ -103,7 +101,7 @@ public class MyBot : IChessBot
 
         if (plyFromRoot == 0)
         {
-            _bestMoveThisIteration = bestMoveInPosition;
+            _bestMove = bestMoveInPosition;
         }
 
         _transpositionTable[board.ZobristKey] = (alpha, depthLeft, bestMoveInPosition);
