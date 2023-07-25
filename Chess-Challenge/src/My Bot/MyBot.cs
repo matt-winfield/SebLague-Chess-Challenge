@@ -22,21 +22,18 @@ public class MyBot : IChessBot
     // Used to avoid re-evaluating the same position multiple times
     private readonly Dictionary<ulong, (int, int, Move)> _transpositionTable = new();
     private Move _bestMove;
-    private bool searchAborted;
+    private bool _searchAborted;
+    private int _timeRemainingToStopSearch;
+    private Timer _timer;
 
     public Move Think(Board board, Timer timer)
     {
         // Average 40 moves per game, so we start targetting 1/40th of the remaining time
         // Will move quicker as the game progresses / less time is remaining
         // Minimum 1/10 of the remaining time, to avoid timing out, divide by zero errors or negative numbers
-        var cancellationTimer = new System.Timers.Timer(Math.Max(timer.MillisecondsRemaining / Math.Max(40 - board.PlyCount / 2, 10), 1));
-        searchAborted = false;
-        cancellationTimer.Elapsed += (s, e) =>
-        {
-            searchAborted = true;
-            cancellationTimer.Stop();
-        };
-        cancellationTimer.Start();
+        _timeRemainingToStopSearch = timer.MillisecondsRemaining - timer.MillisecondsRemaining / Math.Max(40 - board.PlyCount / 2, 10);
+        _searchAborted = false;
+        _timer = timer;
 
         int score;
         var searchDepth = 1;
@@ -45,7 +42,7 @@ public class MyBot : IChessBot
         {
             // 9999999 and -9999999 are used as "infinity" values for alpha and beta
             score = Search(board, -9999999, 9999999, searchDepth, 0);
-        } while (searchDepth++ < 20 && !searchAborted); // 20 is the max depth
+        } while (searchDepth++ < 20 && !_searchAborted); // 20 is the max depth
         
         // This is for debugging purposes only, comment it out so it doesn't use up tokens!
         // The ttMemory calculation is storing 2 ints, so divide by 2 to get bytes, then divide by 1000000 to get MB
@@ -56,6 +53,11 @@ public class MyBot : IChessBot
     
     private int Search(Board board, int alpha, int beta, int depthLeft, int plyFromRoot)
     {
+        if (_timer.MillisecondsRemaining <= _timeRemainingToStopSearch)
+        {
+            _searchAborted = true;
+        }
+        
         // If the current position has already been evaluated to at least the same depth, return the stored value
         if (_transpositionTable.TryGetValue(board.ZobristKey, out var value) && value.Item2 >= depthLeft)
         {
@@ -83,7 +85,7 @@ public class MyBot : IChessBot
         var bestMoveInPosition = legalMoves[0];
         foreach (var move in legalMoves)
         {
-            if (searchAborted) break;
+            if (_searchAborted) break;
             board.MakeMove(move);
             var eval = -Search(board, -beta, -alpha, depthLeft - 1, plyFromRoot + 1);
             board.UndoMove(move);
