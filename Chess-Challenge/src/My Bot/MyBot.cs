@@ -137,46 +137,45 @@ public class MyBot : IChessBot
     
     private int GetPiecePositionalBonus(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
-        switch ((int)pieceType) // Using enum name uses more tokens than using the int value
+        // This is used in the case that the piece is a king
+        var enemyKing = board.GetKingSquare(isWhite);
+        // Encourage our king to move towards the enemy king, to "box it in"
+        var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
+        // Encourage enemy king to move towards edge/corner
+        var enemyKingDistanceFromCenter = (int) (Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5));
+        var boxInKingBonus = distanceFromEnemyKing + enemyKingDistanceFromCenter;
+        
+        // Using enum name uses more tokens than using the int value
+        return (int)pieceType switch
         {
-            case 1: // Pawn
-                var isPassed = (board.GetPieceBitboard(PieceType.Pawn, !isWhite) &
-                               GetPassedPawnBitboard(rank, file, isWhite)) == 0;
+            1 => // Pawn
+                (10 + (
+                (board.GetPieceBitboard(PieceType.Pawn, !isWhite) & GetPassedPawnBitboard(rank, file, isWhite)) == 0 // Is passed pawn
+                    ? 50 : 0)) // Add 50 if passed pawn
                 // This position table encourages pawns to move forward with an emphasis on the center of the board
                 // It places some importance on keeping pawns near the king to protect it
-                return (10 + (isPassed ? 50 : 0)) * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
-                    rank, file, isWhite);
-            case 2: // Knight
+                 * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
+                rank, file, isWhite),
+            2 => // Knight
                 // Encourage knights to move towards the center of the board
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, rank, file, isWhite);
-            case 3: // Bishop
+                10 * GetSquareValueFromMultiBitboard(new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, rank, file, isWhite),
+            3 => // Bishop
                 // Encourage bishops to position on long diagonals
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, rank, file, isWhite);
-            case 4: // Rook
+                10 * GetSquareValueFromMultiBitboard(new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, rank, file, isWhite),
+            4 => // Rook
                 // Encourage rooks to position in the center-edge or cut off on second-last rank
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x8100000000003c }, rank, file, isWhite);
-            case 5: // Queen
+                10 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x8100000000003c }, rank, file, isWhite),
+            5 => // Queen
                 // Slightly encourage queen towards center of board
-                return 10 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite);
-            case 6: // King
-                var enemyKing = board.GetKingSquare(isWhite);
-
-                // Encourage our king to move towards the enemy king, to "box it in"
-                var distanceFromEnemyKing = Math.Abs(enemyKing.Rank - rank) + Math.Abs(enemyKing.File - file);
-
-                // Encourage enemy king to move towards edge/corner
-                var enemyKingDistanceFromCenter = (int) (Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5));
-
-                var boxInKingBonus = distanceFromEnemyKing + enemyKingDistanceFromCenter;
-                return
-                    // Encourage king to take shelter behind pawns at start of the game
-                    (int)(10 * GetSquareValueFromMultiBitboard(new[] { 0xc3L, 0x66L }, rank, file, isWhite) *
-                          (1 - endgameModifier))
-                    // Encourage king to "box in" enemy king at end of the game
-                    + (int)(10 * boxInKingBonus * endgameModifier);
-        }
-
-        return 1;
+                10 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite),
+            6 => // King
+                // Encourage king to take shelter behind pawns at start of the game
+                (int)(10 * GetSquareValueFromMultiBitboard(new[] { 0xc3L, 0x66L }, rank, file, isWhite) *
+                      (1 - endgameModifier))
+                // Encourage king to "box in" enemy king at end of the game
+                + (int)(10 * boxInKingBonus * endgameModifier),
+            _ => 1
+        };
     }
 
 
