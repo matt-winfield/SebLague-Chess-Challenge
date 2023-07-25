@@ -38,6 +38,9 @@
     <Compile Update="src\Previous Bot Versions\BotV8_TweakedPositionalValues.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
+    <Compile Update="src\Previous Bot Versions\BotV9_KeepLatestSearchResult_EvaluationNumbersTweaks.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
