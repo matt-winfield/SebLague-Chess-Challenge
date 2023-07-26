@@ -44,6 +44,9 @@
     <Compile Update="src\Previous Bot Versions\BotV10_QuiescenceSearch.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
+    <Compile Update="src\Previous Bot Versions\BotV11_TweakedPieceSquareTables.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
