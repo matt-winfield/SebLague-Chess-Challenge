@@ -21,8 +21,10 @@ public class MyBot : IChessBot
     // Dictionary of zobrist keys to evaluation scores (Item1), the depth the position was evaluated to (Item2), and the best move in that position (Item3)
     // Used to avoid re-evaluating the same position multiple times
     private readonly Dictionary<ulong, (int, int, Move)> _transpositionTable = new();
+    
     private Move _bestMove;
     private bool _searchAborted;
+    // The time remaining in milliseconds when the search should stop
     private int _timeRemainingToStopSearch;
     private Timer _timer;
 
@@ -46,7 +48,7 @@ public class MyBot : IChessBot
         
         // This is for debugging purposes only, comment it out so it doesn't use up tokens!
         // The ttMemory calculation is storing 2 ints, so divide by 2 to get bytes, then divide by 1000000 to get MB
-        // Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}, Result: {_bestMove}, Depth: {searchDepth}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 2d) / 1000000d}MB, fen: {board.GetFenString()}");
+        // Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}, Result: {_bestMove}, Depth: {searchDepth}, time remaining: {timer.MillisecondsRemaining}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 2d) / 1000000d}MB, fen: {board.GetFenString()}");
         
         return _bestMove;
     }
@@ -110,15 +112,41 @@ public class MyBot : IChessBot
 
         return alpha;
     }
+    
+    private Move[] GetOrderedLegalMoves(Board board, int plyFromRoot, bool capturesOnly = false)
+    {
+        return board.GetLegalMoves(capturesOnly).OrderByDescending(move =>
+        {
+            // Always start with the best move from the previous iteration
+            if (plyFromRoot == 0 && _bestMove.Equals(move))
+                return 9999999;
+            
+            var score = 0;
+            
+            // Prioritise moves that capture pieces
+            if (move.CapturePieceType != PieceType.None)
+            {
+                score += values[(int)move.CapturePieceType];
+            }
+
+            // Prioritise moves that promote pawns
+            if (move.IsPromotion)
+            {
+                score += values[(int)move.PromotionPieceType];
+            }
+
+            return score;
+        }).ToArray();
+    }
 
     private ulong GetPassedPawnBitboard(int rank, int file, bool isWhite) =>
             (isWhite // Forward mask
                 ? ulong.MaxValue << 8 * (rank + 1) // White, going up the board
                 : ulong.MaxValue >> 8 * (8 - rank)) // Black, going down the board
             &
-                (0x0101010101010101u << file // File mask
-               | 0x0101010101010101u << Math.Max(0, file - 1) // Left file mask
-               | 0x0101010101010101u << Math.Min(7, file + 1)); // Right file mask
+                (0x0101010101010101UL << file // File mask
+               | 0x0101010101010101UL << Math.Max(0, file - 1) // Left file mask
+               | 0x0101010101010101UL << Math.Min(7, file + 1)); // Right file mask
 
     /**
      * Use the concept of a "multi-bitboard" to store values for each square on the board.
@@ -146,6 +174,42 @@ public class MyBot : IChessBot
         // Encourage enemy king to move towards edge/corner
         var enemyKingDistanceFromCenter = (int) (Math.Abs(enemyKing.Rank - 3.5) + Math.Abs(enemyKing.File - 3.5));
         var boxInKingBonus = distanceFromEnemyKing + enemyKingDistanceFromCenter;
+
+        var kingSafetyBonus = 0;
+        var kingZoneAttackers = 0;
+        if (pieceType == PieceType.King)
+        {
+            // For each of the squares around the king, check if it's attacked by a piece and reduce the king safety bonus
+            for (var kingZoneRank = Math.Max(rank - 1, 0); kingZoneRank <= Math.Min(rank + 1, 7); kingZoneRank++)
+            {
+                for (var kingZoneFile = Math.Max(file - 1, 0); kingZoneFile <= Math.Min(file + 1, 7); kingZoneFile++)
+                {
+                    var knightAttacksBitboard = BitboardHelper.GetKnightAttacks(new Square(kingZoneFile, kingZoneRank)) &
+                                        board.GetPieceBitboard(PieceType.Knight, !isWhite);
+                    var bishopAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Bishop, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Bishop, !isWhite);
+                    var rookAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Rook, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Rook, !isWhite);
+                    var queenAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Queen, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Queen, !isWhite);
+
+                    var knightAttacks = CountBits(knightAttacksBitboard);
+                    var bishopAttacks = CountBits(bishopAttacksBitboard);
+                    var rookAttacks = CountBits(rookAttacksBitboard);
+                    var queenAttacks = CountBits(queenAttacksBitboard);
+                    
+                    kingZoneAttackers += knightAttacks + bishopAttacks + rookAttacks + queenAttacks;
+                    kingSafetyBonus -= (isWhite ? 1 : -1) * ((knightAttacks + bishopAttacks) * 20 + rookAttacks * 40 + queenAttacks * 80);
+                }
+            }
+        }
+
+        // The more attackers there are, the worse the king safety is
+        // With 0 or 1 attackers, the bonus is 0
+        // With 2 attackers, the bonus is multiplied by 1/2
+        // With 3 attackers, the bonus is multiplier by 2/3
+        // With 4 attackers, the bonus is multiplied by 3/4 etc.
+        var kingSafetyBonusWithAttackerModifier = kingSafetyBonus * Math.Max(kingZoneAttackers - 1, 0) / Math.Max(kingZoneAttackers, 1);
         
         // Using enum name uses more tokens than using the int value
         return (int)pieceType switch
@@ -175,37 +239,14 @@ public class MyBot : IChessBot
                 (int)(10 * GetSquareValueFromMultiBitboard(new[] { 0xc3L, 0x66L }, rank, file, isWhite) *
                       (1 - endgameModifier))
                 // Encourage king to "box in" enemy king at end of the game
-                + (int)(10 * boxInKingBonus * endgameModifier),
+                + (int)(10 * boxInKingBonus * endgameModifier)
+                // Keep the king safe from enemy attacks
+                + (int) kingSafetyBonusWithAttackerModifier,
             _ => 1
         };
     }
 
 
-    private Move[] GetOrderedLegalMoves(Board board, int plyFromRoot, bool capturesOnly = false)
-    {
-        return board.GetLegalMoves(capturesOnly).OrderByDescending(move =>
-        {
-            // Always start with the best move from the previous iteration
-            if (plyFromRoot == 0 && _bestMove.Equals(move))
-                return 9999999;
-            
-            var score = 0;
-            
-            // Prioritise moves that capture pieces
-            if (move.CapturePieceType != PieceType.None)
-            {
-                score += values[(int)move.CapturePieceType];
-            }
-
-            // Prioritise moves that promote pawns
-            if (move.IsPromotion)
-            {
-                score += values[(int)move.PromotionPieceType];
-            }
-
-            return score;
-        }).ToArray();
-    }
 
     /**
      * Evaluate the current position. Score is from the perspective of the player to move, where positive is winning.
