@@ -5,7 +5,7 @@ using ChessChallenge.API;
 using Board = ChessChallenge.API.Board;
 using Move = ChessChallenge.API.Move;
 
-public class MyBot : IChessBot
+public class BotV10_QuiescenceSearch : IChessBot
 {
     private int[] values = 
     {
