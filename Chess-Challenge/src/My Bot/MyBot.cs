@@ -28,6 +28,28 @@ public class MyBot : IChessBot
     private int _timeRemainingToStopSearch;
     private Timer _timer;
 
+    private long[][] _positionalMultipliers =
+    {
+        new long[0],
+        new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 }, // Pawn
+        new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, // Knight
+        new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, // Bishop
+        new[] { 0x7e000000000000, 0x8100000000003c }, // Rook
+        new[] { 0x3c3c3c3e0400 }, // Queen
+        new[] { 0xc3L, 0x66L } // King
+    };
+
+    private long[][] _endgamePositionalMultipliers =
+    {
+        new long[0],
+        new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 }, // Pawn
+        new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, // Knight
+        new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, // Bishop
+        new[] { 0x7e000000000000, 0x8100000000003c }, // Rook
+        new[] { 0x3c3c3c3e0400 }, // Queen
+        new[] { 0xc3L, 0x66L } // King
+    };
+
     public Move Think(Board board, Timer timer)
     {
         // Average 40 moves per game, so we start targetting 1/40th of the remaining time
@@ -187,38 +209,11 @@ public class MyBot : IChessBot
     
     private int GetPiecePositionalBonus(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
     {
-        // Using enum name uses more tokens than using the int value
-        return (int)pieceType switch
-        {
-            1 => // Pawn
-                (10 + (
-                (board.GetPieceBitboard(PieceType.Pawn, !isWhite) & GetPassedPawnBitboard(rank, file, isWhite)) == 0 // Is passed pawn
-                    ? 50 : 0)) // Add 50 if passed pawn
-                // This position table encourages pawns to move forward with an emphasis on the center of the board
-                // It places some importance on keeping pawns near the king to protect it
-                 * GetSquareValueFromMultiBitboard(new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 },
-                rank, file, isWhite),
-            2 => // Knight
-                // Encourage knights to move towards the center of the board
-                10 * GetSquareValueFromMultiBitboard(new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, rank, file, isWhite),
-            3 => // Bishop
-                // Encourage bishops to position on long diagonals
-                10 * GetSquareValueFromMultiBitboard(new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, rank, file, isWhite),
-            4 => // Rook
-                // Encourage rooks to position in the center-edge or cut off on second-last rank
-                10 * GetSquareValueFromMultiBitboard(new[] { 0x7e000000000000, 0x8100000000003c }, rank, file, isWhite),
-            5 => // Queen
-                // Slightly encourage queen towards center of board
-                10 * GetSquareValueFromMultiBitboard(new[] { 0x3c3c3c3e0400 }, rank, file, isWhite),
-            6 => // King
-                // Encourage king to take shelter behind pawns at start of the game
-                (int)(10 * GetSquareValueFromMultiBitboard(new[] { 0xc3L, 0x66L }, rank, file, isWhite) *
-                      (1 - endgameModifier)),
-            _ => 1
-        };
+        return (int) (
+            10 * endgameModifier * GetSquareValueFromMultiBitboard(_positionalMultipliers[(int)pieceType], rank, file, isWhite)
+            + 10 * (1 - endgameModifier) * GetSquareValueFromMultiBitboard(_endgamePositionalMultipliers[(int) pieceType], rank, file, isWhite)
+        );
     }
-
-
 
     /**
      * Evaluate the current position. Score is from the perspective of the player to move, where positive is winning.
