@@ -53,8 +53,11 @@ public class MyBot : IChessBot
         return _bestMove;
     }
     
+    // If depthLeft is 0 (or less), perform a quintescence search
+    // https://www.chessprogramming.org/Quiescence_Search
     private int Search(Board board, int alpha, int beta, int depthLeft, int plyFromRoot)
     {
+        var qsearch = depthLeft < 0;
         if (_timer.MillisecondsRemaining <= _timeRemainingToStopSearch)
         {
             _searchAborted = true;
@@ -66,17 +69,18 @@ public class MyBot : IChessBot
             if (plyFromRoot == 0)
                 // Get the saved best move in this position
                 _bestMove = value.Item3;
-            
-            // Return the saved evaluation score
-            return value.Item1;
+            else
+                // Return the saved evaluation score
+                return value.Item1;
         }
 
         // Repetition is a draw, so return 0
         if (board.IsRepeatedPosition())
             return 0;
         
-        var legalMoves = GetOrderedLegalMoves(board, plyFromRoot);
-        if (legalMoves.Length == 0)
+        // Get the legal moves, if it's a quintescence search only get captures
+        var legalMoves = GetOrderedLegalMoves(board, plyFromRoot, qsearch);
+        if (!qsearch && legalMoves.Length == 0)
         {
             // No legal moves + no check = stalemate
             if (!board.IsInCheck()) return 0;
@@ -86,11 +90,16 @@ public class MyBot : IChessBot
             // 9999998 is one less than "infinity" used as initial alpha/beta values, one less to avoid beta comparison failing
             return -9999998 + plyFromRoot;
         }
-        
-        if (depthLeft == 0)
-            return Evaluate(board);
 
-        var bestMoveInPosition = legalMoves[0];
+        // Quiescence search
+        if (qsearch)
+        {
+            var staticEval = Evaluate(board);
+            if (staticEval >= beta) return beta; // This position is better than beta, so the opponent will not allow it to happen
+            alpha = Math.Max(alpha, staticEval); // This position is a better move
+        }
+
+        var bestMoveInPosition = Move.NullMove;
         foreach (var move in legalMoves)
         {
             if (_searchAborted) break;
@@ -111,10 +120,12 @@ public class MyBot : IChessBot
 
         if (plyFromRoot == 0)
         {
-            _bestMove = bestMoveInPosition;
+            // If no best move was found (e.g. search cancelled), just use the first legal move
+            _bestMove = bestMoveInPosition.IsNull ? legalMoves[0] : bestMoveInPosition;
         }
 
-        _transpositionTable[board.ZobristKey] = (alpha, depthLeft, bestMoveInPosition);
+        if (!qsearch)
+            _transpositionTable[board.ZobristKey] = (alpha, depthLeft, bestMoveInPosition);
 
         return alpha;
     }
