@@ -181,7 +181,7 @@ public class MyBot : IChessBot
         var boxInKingBonus = distanceFromEnemyKing + enemyKingDistanceFromCenter;
 
         var kingSafetyBonus = 0;
-        var kingZoneAttackers = 0;
+        var attackersBitboard = 0UL;
         if (pieceType == PieceType.King)
         {
             // For each of the squares around the king, check if it's attacked by a piece and reduce the king safety bonus
@@ -190,17 +190,23 @@ public class MyBot : IChessBot
             {
                 for (var kingZoneFile = Math.Max(file - 1, 0); kingZoneFile <= Math.Min(file + 1, 7); kingZoneFile++)
                 {
-                    var knightAttacks = CountBits(BitboardHelper.GetKnightAttacks(new Square(kingZoneFile, kingZoneRank)) & // Bitboard of squares a knight can attack this square from
-                                        board.GetPieceBitboard(PieceType.Knight, !isWhite)); // Bitboard of enemy knights
-                    var bishopAttacks = CountBits(BitboardHelper.GetSliderAttacks(PieceType.Bishop, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
-                                        board.GetPieceBitboard(PieceType.Bishop, !isWhite)); // Bitboard of enemy bishops
-                    var rookAttacks = CountBits(BitboardHelper.GetSliderAttacks(PieceType.Rook, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
-                                        board.GetPieceBitboard(PieceType.Rook, !isWhite)); // Bitboard of enemy rooks
-                    var queenAttacks = CountBits(BitboardHelper.GetSliderAttacks(PieceType.Queen, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
-                                        board.GetPieceBitboard(PieceType.Queen, !isWhite)); // Bitboard of enemy queens
+                    var knightAttacksBitboard = BitboardHelper.GetKnightAttacks(new Square(kingZoneFile, kingZoneRank)) &
+                                        board.GetPieceBitboard(PieceType.Knight, !isWhite);
+                    var bishopAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Bishop, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Bishop, !isWhite);
+                    var rookAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Rook, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Rook, !isWhite);
+                    var queenAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Queen, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Queen, !isWhite);
+
+                    var knightAttacks = CountBits(knightAttacksBitboard);
+                    var bishopAttacks = CountBits(bishopAttacksBitboard);
+                    var rookAttacks = CountBits(rookAttacksBitboard);
+                    var queenAttacks = CountBits(queenAttacksBitboard);
                     
-                    kingZoneAttackers += knightAttacks + bishopAttacks + rookAttacks + queenAttacks;
-                    kingSafetyBonus -= (isWhite ? 1 : -1) * ((knightAttacks + bishopAttacks) * 10 + rookAttacks * 20 + queenAttacks * 40);
+                    attackersBitboard |= knightAttacksBitboard | bishopAttacksBitboard | rookAttacksBitboard |
+                                         queenAttacksBitboard;
+                    kingSafetyBonus -= (isWhite ? 1 : -1) * ((knightAttacks + bishopAttacks) * 20 + rookAttacks * 40 + queenAttacks * 80);
                 }
             }
         }
@@ -210,6 +216,7 @@ public class MyBot : IChessBot
         // With 2 attackers, the bonus is multiplied by 1/2
         // With 3 attackers, the bonus is multiplier by 2/3
         // With 4 attackers, the bonus is multiplied by 3/4 etc.
+        var kingZoneAttackers = CountBits(attackersBitboard);
         var kingSafetyBonusWithAttackerModifier = kingSafetyBonus * Math.Max(kingZoneAttackers - 1, 0) / (double) Math.Max(kingZoneAttackers, 1);
         
         // Using enum name uses more tokens than using the int value
