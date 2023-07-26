@@ -28,26 +28,26 @@ public class MyBot : IChessBot
     private int _timeRemainingToStopSearch;
     private Timer _timer;
 
-    private long[][] _positionalMultipliers =
+    private ulong[][] _positionalMultipliers =
     {
-        new long[0],
-        new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 }, // Pawn
-        new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, // Knight
-        new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, // Bishop
-        new[] { 0x7e000000000000, 0x8100000000003c }, // Rook
-        new[] { 0x3c3c3c3e0400 }, // Queen
-        new[] { 0xc3L, 0x66L } // King
+        new ulong[0],
+        new[] { 0x2b000000000000ul, 0x547c1800406000ul, 0x36326618000000ul }, // Pawn
+        new[] { 0x200000000000ul, 0x3c5e3c60700000ul, 0x24587a1e0c2000ul }, // Knight
+        new[] { 0x207c3800000000ul, 0x72020418606000ul, 0x10224876be4600ul }, // Bishop
+        new[] { 0x10000000000000ul, 0x9aac682000000000ul, 0x556fd61800000018ul, 0x6d63240c10000024ul }, // Rook
+        new[] { 0xf0a0e00000000000ul, 0x1460b00000002000ul, 0x8cc0500000001000ul }, // Queen
+        new[] { 0xc2ul, 0xc056ul } // King
     };
 
-    private long[][] _endgamePositionalMultipliers =
+    private ulong[][] _endgamePositionalMultipliers =
     {
-        new long[0],
-        new[] { 0xffff0000000000, 0xffff3c0000, 0xff00ff3cc30000 }, // Pawn
-        new[] { 0x1818000000, 0x3c7e66667e3c00, 0x423c24243c4200 }, // Knight
-        new[] { 0x24243c3c3c242400, 0x1818000000, 0x3c7e66667e3c00 }, // Bishop
-        new[] { 0x7e000000000000, 0x8100000000003c }, // Rook
-        new[] { 0x3c3c3c3e0400 }, // Queen
-        new[] { 0xc3L, 0x66L } // King
+        new ulong[0],
+        new[] { 0xffc30000000000ul, 0x3c8300000000ul, 0xff3c4503005f00ul }, // Pawn
+        new[] { 0x1c08000000ul, 0x46034180000ul }, // Knight
+        new[] { 0x8000000ul, 0x203e341c0000ul }, // Bishop
+        new[] { 0xff4f0f0406000000 }, // Rook
+        new[] { 0x1838f848000000ul, 0xbe764056b6240000ul, 0x58649e083ad80000ul }, // Queen
+        new[] { 0x20600000000000ul, 0x5a1e7e3c180000ul, 0x2084a17850641800ul } // King
     };
 
     public Move Think(Board board, Timer timer)
@@ -197,7 +197,7 @@ public class MyBot : IChessBot
      * computational cost for reading values than simply using a multi-dimensional array (not a significant amount, but still higher).
      * However we need to minimise number of tokens used, and this approach uses significantly fewer.
      */
-    private int GetSquareValueFromMultiBitboard(long[] bitboards, int rank, int file, bool isWhite)
+    private int GetSquareValueFromMultiBitboard(ulong[] bitboards, int rank, int file, bool isWhite)
     {
         var correctedRank = isWhite ? rank : 7 - rank;
         return Convert.ToInt32(
@@ -220,19 +220,19 @@ public class MyBot : IChessBot
      */
     private int Evaluate(Board board)
     {
-        // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 28 to 12 (i.e. the endgame)
+        // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 32 to 12 (i.e. the endgame)
         // Use to encourage the bot to act differently in the endgame
         // 28 remaining pieces = 0; 12 remaining pieces = 1;
-        // x = 28, y = 0
+        // x = 32, y = 0
         // x = 12, y = 1
         // y = mx + c
-        // 0 = 28m + c, 1 = 12m + c
-        // c = -28m
-        // 1 = 12m - 28m
-        // 1 = -16m
-        // m = -1/16
-        // c = 28/16
-        // y (endgame modifier) = -x/16 + 28/16, where x = piecesRemaining
+        // 0 = 32m + c, 1 = 12m + c
+        // c = -32m
+        // 1 = 12m - 32m
+        // 1 = -20m
+        // m = -1/20
+        // c = 32/20
+        // y (endgame modifier) = -x/20 + 32/20, where x = piecesRemaining
         // Clamp between 0 and 1
         var endgameModifier = Math.Max(Math.Min(-CountBits(board.AllPiecesBitboard)/20d + 32/20d, 0), 1);
         
