@@ -64,8 +64,10 @@ public class MyBot : IChessBot
         if (_transpositionTable.TryGetValue(board.ZobristKey, out var value) && value.Item2 >= depthLeft)
         {
             if (plyFromRoot == 0)
+                // Get the saved best move in this position
                 _bestMove = value.Item3;
             
+            // Return the saved evaluation score
             return value.Item1;
         }
         
@@ -161,8 +163,11 @@ public class MyBot : IChessBot
     private int GetSquareValueFromMultiBitboard(long[] bitboards, int rank, int file, bool isWhite)
     {
         var correctedRank = isWhite ? rank : 7 - rank;
-        var binary = bitboards.Select(bitboard => ((bitboard >> (correctedRank * 8 + file)) & 1) != 0 ? "1" : "0").Aggregate((a, b) => a + b);
-        return Convert.ToInt32(binary, 2);
+        return Convert.ToInt32(
+            bitboards.Select(bitboard => ((bitboard >> (correctedRank * 8 + file)) & 1) != 0 ? "1" : "0")
+                .Aggregate((a, b) => a + b),
+            2
+        );
     }
     
     private int GetPiecePositionalBonus(PieceType pieceType, Board board, bool isWhite, int rank, int file, double endgameModifier)
@@ -185,22 +190,17 @@ public class MyBot : IChessBot
             {
                 for (var kingZoneFile = Math.Max(file - 1, 0); kingZoneFile <= Math.Min(file + 1, 7); kingZoneFile++)
                 {
-                    var knightAttacksBitboard = BitboardHelper.GetKnightAttacks(new Square(kingZoneFile, kingZoneRank)) &
-                                        board.GetPieceBitboard(PieceType.Knight, !isWhite);
-                    var bishopAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Bishop, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
-                                        board.GetPieceBitboard(PieceType.Bishop, !isWhite);
-                    var rookAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Rook, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
-                                        board.GetPieceBitboard(PieceType.Rook, !isWhite);
-                    var queenAttacksBitboard = BitboardHelper.GetSliderAttacks(PieceType.Queen, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
-                                        board.GetPieceBitboard(PieceType.Queen, !isWhite);
-
-                    var knightAttacks = CountBits(knightAttacksBitboard);
-                    var bishopAttacks = CountBits(bishopAttacksBitboard);
-                    var rookAttacks = CountBits(rookAttacksBitboard);
-                    var queenAttacks = CountBits(queenAttacksBitboard);
+                    var knightAttacks = CountBits(BitboardHelper.GetKnightAttacks(new Square(kingZoneFile, kingZoneRank)) & // Bitboard of squares a knight can attack this square from
+                                        board.GetPieceBitboard(PieceType.Knight, !isWhite)); // Bitboard of enemy knights
+                    var bishopAttacks = CountBits(BitboardHelper.GetSliderAttacks(PieceType.Bishop, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Bishop, !isWhite)); // Bitboard of enemy bishops
+                    var rookAttacks = CountBits(BitboardHelper.GetSliderAttacks(PieceType.Rook, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Rook, !isWhite)); // Bitboard of enemy rooks
+                    var queenAttacks = CountBits(BitboardHelper.GetSliderAttacks(PieceType.Queen, new Square(kingZoneFile, kingZoneRank), board.AllPiecesBitboard) &
+                                        board.GetPieceBitboard(PieceType.Queen, !isWhite)); // Bitboard of enemy queens
                     
                     kingZoneAttackers += knightAttacks + bishopAttacks + rookAttacks + queenAttacks;
-                    kingSafetyBonus -= (isWhite ? 1 : -1) * ((knightAttacks + bishopAttacks) * 10 + rookAttacks * 40 + queenAttacks * 80);
+                    kingSafetyBonus -= (isWhite ? 1 : -1) * ((knightAttacks + bishopAttacks) * 10 + rookAttacks * 20 + queenAttacks * 40);
                 }
             }
         }
