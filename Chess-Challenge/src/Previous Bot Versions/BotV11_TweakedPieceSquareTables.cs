@@ -74,7 +74,7 @@ public class BotV11_TweakedPieceSquareTables : IChessBot
         // The ttMemory calculation is storing 2 ints, so divide by 2 to get bytes, then divide by 1000000 to get MB
         // Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}, Result: {_bestMove}, Depth: {searchDepth}, time remaining: {timer.MillisecondsRemaining}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 2d) / 1000000d}MB, fen: {board.GetFenString()}");
         
-        return _bestMove.IsNull ? GetOrderedLegalMoves(board, 0)[0] : _bestMove;
+        return _bestMove;
     }
     
     // If depthLeft is 0 (or less), perform a quintescence search
