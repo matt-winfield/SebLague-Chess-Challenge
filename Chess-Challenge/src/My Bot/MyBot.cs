@@ -70,6 +70,10 @@ public class MyBot : IChessBot
             // Return the saved evaluation score
             return value.Item1;
         }
+
+        // Repetition is a draw, so return 0
+        if (board.IsRepeatedPosition())
+            return 0;
         
         var legalMoves = GetOrderedLegalMoves(board, plyFromRoot);
         if (legalMoves.Length == 0)
