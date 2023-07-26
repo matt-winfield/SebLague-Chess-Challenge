@@ -15,7 +15,7 @@ public class MyBot : IChessBot
         350, // Bishop
         525, // Rook
         1000, // Queen
-        200 // King - This value is used for the endgame, where the king is encouraged to move towards the enemy king
+        200 // King - This value is used for positional multiplier
     };
 
     // Dictionary of zobrist keys to evaluation scores (Item1), the depth the position was evaluated to (Item2), and the best move in that position (Item3)
