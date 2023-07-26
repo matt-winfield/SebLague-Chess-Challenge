@@ -180,7 +180,8 @@ public class MyBot : IChessBot
         if (pieceType == PieceType.King)
         {
             // For each of the squares around the king, check if it's attacked by a piece and reduce the king safety bonus
-            for (var kingZoneRank = Math.Max(rank - 1, 0); kingZoneRank <= Math.Min(rank + 1, 7); kingZoneRank++)
+            // Check an extra square in the direction of the enemy king
+            for (var kingZoneRank = Math.Max(rank - (isWhite ? 1 : 2), 0); kingZoneRank <= Math.Min(rank + (isWhite ? 2 : 1), 7); kingZoneRank++)
             {
                 for (var kingZoneFile = Math.Max(file - 1, 0); kingZoneFile <= Math.Min(file + 1, 7); kingZoneFile++)
                 {
@@ -199,7 +200,7 @@ public class MyBot : IChessBot
                     var queenAttacks = CountBits(queenAttacksBitboard);
                     
                     kingZoneAttackers += knightAttacks + bishopAttacks + rookAttacks + queenAttacks;
-                    kingSafetyBonus -= (isWhite ? 1 : -1) * ((knightAttacks + bishopAttacks) * 20 + rookAttacks * 40 + queenAttacks * 80);
+                    kingSafetyBonus -= (isWhite ? 1 : -1) * ((knightAttacks + bishopAttacks) * 10 + rookAttacks * 40 + queenAttacks * 80);
                 }
             }
         }
@@ -209,7 +210,7 @@ public class MyBot : IChessBot
         // With 2 attackers, the bonus is multiplied by 1/2
         // With 3 attackers, the bonus is multiplier by 2/3
         // With 4 attackers, the bonus is multiplied by 3/4 etc.
-        var kingSafetyBonusWithAttackerModifier = kingSafetyBonus * Math.Max(kingZoneAttackers - 1, 0) / Math.Max(kingZoneAttackers, 1);
+        var kingSafetyBonusWithAttackerModifier = kingSafetyBonus * Math.Max(kingZoneAttackers - 1, 0) / (double) Math.Max(kingZoneAttackers, 1);
         
         // Using enum name uses more tokens than using the int value
         return (int)pieceType switch
