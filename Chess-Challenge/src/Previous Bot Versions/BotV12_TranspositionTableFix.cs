@@ -5,9 +5,9 @@ using ChessChallenge.API;
 using Board = ChessChallenge.API.Board;
 using Move = ChessChallenge.API.Move;
 
-// 533 wins / 134 draws / 333 losses (194 timeouts, 12 illegal moves)
-// = +70 elo +-20 vs Negamax Basic Bot
-public class BotV11_TweakedPieceSquareTables : IChessBot
+// 601 wins / 40 draws / 359 losses (239 timeouts, 0 illegal moves)
+// = +86 elo +- 22 vs Negamax Basic Bot
+public class BotV12_TranspositionTableFix : IChessBot
 {
     private int[] values = 
     {
@@ -74,7 +74,7 @@ public class BotV11_TweakedPieceSquareTables : IChessBot
         // The ttMemory calculation is storing 2 ints, so divide by 2 to get bytes, then divide by 1000000 to get MB
         // Console.WriteLine($"Current eval: {Evaluate(board)}, Best move score: {score}, Result: {_bestMove}, Depth: {searchDepth}, time remaining: {timer.MillisecondsRemaining}, ttSize: {_transpositionTable.Count}, ttMemory: {(_transpositionTable.Count / 2d) / 1000000d}MB, fen: {board.GetFenString()}");
         
-        return _bestMove;
+        return _bestMove.IsNull ? GetOrderedLegalMoves(board, 0)[0] : _bestMove;
     }
     
     // If depthLeft is 0 (or less), perform a quintescence search
@@ -145,10 +145,10 @@ public class BotV11_TweakedPieceSquareTables : IChessBot
         if (plyFromRoot == 0)
         {
             // If no best move was found (e.g. search cancelled), just use the first legal move
-            _bestMove = bestMoveInPosition;
+            _bestMove = bestMoveInPosition.IsNull ? legalMoves[0] : bestMoveInPosition;
         }
 
-        if (!qsearch)
+        if (!qsearch && !_searchAborted)
             _transpositionTable[board.ZobristKey] = (alpha, depthLeft, bestMoveInPosition);
 
         return alpha;
