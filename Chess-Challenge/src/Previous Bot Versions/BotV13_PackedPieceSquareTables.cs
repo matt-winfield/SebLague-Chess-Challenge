@@ -5,7 +5,9 @@ using ChessChallenge.API;
 using Board = ChessChallenge.API.Board;
 using Move = ChessChallenge.API.Move;
 
-public class MyBot : IChessBot
+// 744 wins / 11 draws / 245 losses (141 timeouts, 0 illegal moves)
+// = +189 elo +- 25 vs Negamax Basic Bot
+public class BotV13_PackedPieceSquareTables : IChessBot
 {
     private int[] _values = 
     {
@@ -215,12 +217,31 @@ public class MyBot : IChessBot
      */
     private int Evaluate(Board board)
     {
+        // Endgame modifier is a linear function that goes from 0 to 1 as piecesRemaining goes from 32 to 12 (i.e. the endgame)
+        // Use to encourage the bot to act differently in the endgame
+        // 28 remaining pieces = 0; 12 remaining pieces = 1;
+        // x = 32, y = 0
+        // x = 12, y = 1
+        // y = mx + c
+        // 0 = 32m + c, 1 = 12m + c
+        // c = -32m
+        // 1 = 12m - 32m
+        // 1 = -20m
+        // m = -1/20
+        // c = 32/20
+        // y (endgame modifier) = -x/20 + 32/20, where x = piecesRemaining
+        // Clamp between 0 and 1
+        // var endgameModifier = Math.Min(Math.Max(-CountBits(board.AllPiecesBitboard)/20d + 32/20d, 0), 1);
+
         var (midgameEval, endgameEval, gamePhase) = (0, 0, 0);
         foreach (var pieceList in board.GetAllPieceLists())
         {
             var pieceType = (int) pieceList.TypeOfPieceInList - 1;
             foreach (var piece in pieceList)
             {
+                // var positionalBonus = GetPiecePositionalBonus(pieceType, board, piece.IsWhite,
+                //     piece.Square.Rank, piece.Square.File, endgameModifier);
+                // eval += (_values[(int)piece.PieceType] + positionalBonus) * (piece.IsWhite ? 1 : -1);
                 var colorModifier = piece.IsWhite ? 1 : -1;
                 midgameEval += (_values[pieceType + 1] + GetSquareBonus(pieceType, piece.IsWhite, piece.Square.Rank, piece.Square.File)) * colorModifier;
                 endgameEval += (_values[pieceType + 1] + GetSquareBonus(pieceType + 6, piece.IsWhite, piece.Square.Rank, piece.Square.File)) * colorModifier;
@@ -232,5 +253,21 @@ public class MyBot : IChessBot
         var middlegameModifier = Math.Min(gamePhase, 24) / 24d;
         var endgameModifier = 1 - middlegameModifier;
         return (int) (midgameEval * middlegameModifier + endgameEval * endgameModifier) * perspective;
+        // return eval * (board.IsWhiteToMove ? 1 : -1);
+    }
+    
+    private int CountBits(ulong n)
+    {
+        int count = 0;
+        while (n != 0)
+        {
+            // n - 1 will flip the rightmost 1 bit to 0 and all the bits to the right of it to 1
+            // e.g. 1000 -> 0111
+            // n & (n - 1) will therefore set the rightmost 1 bit, and all following bits, to 0
+            // If we keep doing this until the number is zero, the number of iterations will be the number of 1 bits
+            n &= n - 1;
+            count++;
+        }
+        return count;
     }
 }

@@ -50,6 +50,9 @@
     <Compile Update="src\Previous Bot Versions\BotV12_TranspositionTableFix.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
+    <Compile Update="src\Previous Bot Versions\BotV13_PackedPieceSquareTables.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>

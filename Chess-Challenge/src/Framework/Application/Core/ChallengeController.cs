@@ -210,7 +210,7 @@ namespace ChessChallenge.Application
             {
                 PlayerType.MyBot => new ChessPlayer(new MyBot(), type, GameDurationMilliseconds),
                 PlayerType.EvilBot => new ChessPlayer(new EvilBot(), type, GameDurationMilliseconds),
-                PlayerType.PreviousVersionBot => new ChessPlayer(new BotV10_QuiescenceSearch(), type, GameDurationMilliseconds),
+                PlayerType.PreviousVersionBot => new ChessPlayer(new BotV13_PackedPieceSquareTables(), type, GameDurationMilliseconds),
                 _ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
         }
