@@ -69,7 +69,7 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, Timer timer)
     {
-        // Average 40 moves per game, so we start targetting 1/40th of the remaining time
+        // Average 40 moves per game, so we start targeting 1/40th of the remaining time
         // Will move quicker as the game progresses / less time is remaining
         // Minimum 1/10 of the remaining time, to avoid timing out, divide by zero errors or negative numbers
         _timeRemainingToStopSearch = timer.MillisecondsRemaining - timer.MillisecondsRemaining / Math.Max(40 - board.PlyCount / 2, 10);
@@ -92,7 +92,7 @@ public class MyBot : IChessBot
         return _bestMove.IsNull ? GetOrderedLegalMoves(board, 0)[0] : _bestMove;
     }
     
-    // If depthLeft is 0 (or less), perform a quintescence search
+    // If depthLeft is 0 (or less), perform a quiescence search
     // https://www.chessprogramming.org/Quiescence_Search
     private int Search(Board board, int alpha, int beta, int depthLeft, int plyFromRoot)
     {
@@ -194,15 +194,6 @@ public class MyBot : IChessBot
             return score;
         }).ToArray();
     }
-
-    private ulong GetPassedPawnBitboard(int rank, int file, bool isWhite) =>
-            (isWhite // Forward mask
-                ? ulong.MaxValue << 8 * (rank + 1) // White, going up the board
-                : ulong.MaxValue >> 8 * (8 - rank)) // Black, going down the board
-            &
-                (0x0101010101010101UL << file // File mask
-               | 0x0101010101010101UL << Math.Max(0, file - 1) // Left file mask
-               | 0x0101010101010101UL << Math.Min(7, file + 1)); // Right file mask
 
     private int GetSquareBonus(int pieceType, bool isWhite, int rank, int file)
     {
